@@ -179,14 +179,28 @@ window.addEventListener('keyup', (e) => {
     if (e.key === 'x' || e.key === 'X') keys.x = false;
 });
 
+// Mouse State
+let isMouseDown = false;
+
 // Mouse Looking and Shooting
 canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
-document.addEventListener('click', (e) => {
+
+document.addEventListener('mousedown', (e) => {
     if (document.pointerLockElement !== canvas) {
         canvas.requestPointerLock();
         return;
     }
-    
+    if (e.button === 0) {
+        isMouseDown = true;
+        shootWeapon(); // Snappy initial shot
+    }
+});
+
+document.addEventListener('mouseup', (e) => {
+    if (e.button === 0) isMouseDown = false;
+});
+
+function shootWeapon() {
     let w = weapons[currentWeaponIndex];
     let now = performance.now() / 1000;
     
@@ -266,7 +280,7 @@ document.addEventListener('click', (e) => {
             });
         }
     }
-});
+}
 
 document.addEventListener('mousemove', (e) => {
     if (document.pointerLockElement === canvas) {
@@ -448,6 +462,14 @@ function gameLoop(time) {
         
         let dy = player.yVelocity * dt;
         movePlayer(player.vx * dt, dy, player.vz * dt);
+        
+        // --- AUTO SHOOTING ---
+        if (isMouseDown) {
+            let w = weapons[currentWeaponIndex];
+            if (w.name === 'Machine Gun' || w.name === 'Assault Rifle') {
+                shootWeapon();
+            }
+        }
         
         // --- ENEMIES & COMBAT ---
         for(let enemy of enemies) {
