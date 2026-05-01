@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alien Blaster</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- The main 3D view -->
+        <canvas id="game-canvas" width="640" height="400"></canvas>
+        
+        <!-- UI Overlay -->
+        <div id="ui-layer">
+            <div id="flash-overlay"></div>
+            <div id="crosshair"></div>
+            <div id="health-bar">Health: 100</div>
+            <div id="weapon-info">Pistol | Ammo: 10/60</div>
+            <div id="powerup-info"></div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="engine.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
