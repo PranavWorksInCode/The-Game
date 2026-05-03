@@ -1,5 +1,5 @@
-// New Map Data for Platforming
-const mapData = {
+// Default Map Data
+let mapData = {
     blocks: [
         // Outer Walls
         { x: 0, y: 0, z: -10, w: 20, h: 5, d: 1, color: 0x555555 },
@@ -7,22 +7,22 @@ const mapData = {
         { x: -10, y: 0, z: 0, w: 1, h: 5, d: 20, color: 0x555555 },
         { x: 10, y: 0, z: 0, w: 1, h: 5, d: 20, color: 0x555555 },
         
-        // Platforming Boxes (Various heights and colors)
-        { x: -5, y: 0, z: -5, w: 2, h: 1, d: 2, color: 0xff0000 }, // Red, height 1
-        { x: -2, y: 0, z: -5, w: 2, h: 2, d: 2, color: 0x00ff00 }, // Green, height 2
-        { x: 1,  y: 0, z: -5, w: 2, h: 3, d: 2, color: 0x0000ff }, // Blue, height 3
-        { x: 4,  y: 0, z: -5, w: 2, h: 4, d: 2, color: 0xffff00 }, // Yellow, height 4
+        // Platforming Boxes
+        { x: -5, y: 0, z: -5, w: 2, h: 1, d: 2, color: 0xff0000 },
+        { x: -2, y: 0, z: -5, w: 2, h: 2, d: 2, color: 0x00ff00 },
+        { x: 1,  y: 0, z: -5, w: 2, h: 3, d: 2, color: 0x0000ff },
+        { x: 4,  y: 0, z: -5, w: 2, h: 4, d: 2, color: 0xffff00 },
         
         // Floating steps
-        { x: -5, y: 2, z: 2, w: 2, h: 0.5, d: 2, color: 0xff00ff }, // Magenta floating step
-        { x: -2, y: 3.5, z: 2, w: 2, h: 0.5, d: 2, color: 0x00ffff }, // Cyan floating step
+        { x: -5, y: 2, z: 2, w: 2, h: 0.5, d: 2, color: 0xff00ff },
+        { x: -2, y: 3.5, z: 2, w: 2, h: 0.5, d: 2, color: 0x00ffff },
     ]
 };
 
 // Player State
 const player = {
     x: 0,
-    y: 0, // Feet level
+    y: 0,
     z: 5,
     yaw: 0,
     pitch: 0,
@@ -33,16 +33,32 @@ const player = {
     eyeHeight: 1.6,
     radius: 0.3,
     moveSpeed: 8.0,
-    jumpVelocity: 14.0, // Greatly increased for platforming
+    jumpVelocity: 14.0,
     health: 100,
     maxHealth: 100
 };
 
-// Enemies and Projectiles
+// Enemies
 let enemies = [
     { id: 1, x: -5, y: 0, z: -8, hp: 150, maxHp: 150, type: 'mover', speed: 4.0, nextShoot: 0 },
     { id: 2, x: 5,  y: 0, z: -8, hp: 2000, maxHp: 2000, type: 'tank', speed: 0.0, nextShoot: 0 }
 ];
+
+// Load Custom Map from Local Storage
+const savedMapStr = localStorage.getItem('customMap');
+if (savedMapStr) {
+    try {
+        const savedData = JSON.parse(savedMapStr);
+        mapData = savedData.mapData;
+        enemies = savedData.enemies;
+        player.x = savedData.playerStart.x;
+        player.z = savedData.playerStart.z;
+        console.log("Loaded custom map!");
+    } catch(e) {
+        console.error("Failed to load map data");
+    }
+}
+
 let projectiles = [];
 
 // Weapons Data
@@ -150,6 +166,11 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'e' || e.key === 'E') keys.e = true;
     if (e.key === 'z' || e.key === 'Z') keys.z = true;
     if (e.key === 'x' || e.key === 'X') keys.x = true;
+    
+    // Level Editor Hotkey
+    if (e.key === 'm' || e.key === 'M') {
+        window.location.href = 'editor.html';
+    }
     
     if (e.key >= '1' && e.key <= '6') {
         currentWeaponIndex = parseInt(e.key) - 1;
@@ -298,6 +319,51 @@ function checkAABB(px, py, pz, box) {
     return (px + player.radius > box.minX && px - player.radius < box.maxX &&
             py + player.eyeHeight > box.minY && py < box.maxY &&
             pz + player.radius > box.minZ && pz - player.radius < box.maxZ);
+}
+
+function checkLineOfSight(x1, y1, z1, x2, y2, z2) {
+    let dx = x2 - x1;
+    let dy = y2 - y1;
+    let dz = z2 - z1;
+    let dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    
+    let dirX = dx / dist;
+    let dirY = dy / dist;
+    let dirZ = dz / dist;
+    
+    dirX = dirX === 0 ? 0.00001 : dirX;
+    dirY = dirY === 0 ? 0.00001 : dirY;
+    dirZ = dirZ === 0 ? 0.00001 : dirZ;
+    
+    let invDirX = 1.0 / dirX;
+    let invDirY = 1.0 / dirY;
+    let invDirZ = 1.0 / dirZ;
+
+    for (let b of mapData.blocks) {
+        let minX = b.x - b.w/2;
+        let maxX = b.x + b.w/2;
+        let minY = b.y;
+        let maxY = b.y + b.h;
+        let minZ = b.z - b.d/2;
+        let maxZ = b.z + b.d/2;
+        
+        let t1 = (minX - x1) * invDirX;
+        let t2 = (maxX - x1) * invDirX;
+        let t3 = (minY - y1) * invDirY;
+        let t4 = (maxY - y1) * invDirY;
+        let t5 = (minZ - z1) * invDirZ;
+        let t6 = (maxZ - z1) * invDirZ;
+
+        let tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
+        let tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
+
+        if (tmax >= 0 && tmin <= tmax) {
+            if (tmin < dist && tmin > 0) {
+                return false; // Blocked by wall
+            }
+        }
+    }
+    return true;
 }
 
 function movePlayer(dx, dy, dz) {
@@ -475,25 +541,63 @@ function gameLoop(time) {
         for(let enemy of enemies) {
             if (enemy.hp <= 0) continue;
             
-            // Movement
-            if (enemy.type === 'mover') {
-                enemy.x += Math.sin(now) * enemy.speed * dt * timeDilationFactor;
+            // Initialize AI states if missing
+            if (!enemy.aiState) {
+                enemy.aiState = 'idle';
+                enemy.lastKnownX = enemy.x;
+                enemy.lastKnownZ = enemy.z;
             }
             
-            // Shooting
-            if (now > enemy.nextShoot) {
-                enemy.nextShoot = now + 1.5 * (1 / timeDilationFactor); // Shoot every 1.5s
+            let dx = player.x - enemy.x;
+            let edy = (player.y + player.eyeHeight) - (enemy.y + 1);
+            let dz = player.z - enemy.z;
+            let dist = Math.sqrt(dx*dx + edy*edy + dz*dz);
+            
+            // Line of sight check
+            let hasLOS = checkLineOfSight(enemy.x, enemy.y + 1.0, enemy.z, player.x, player.y + player.eyeHeight, player.z);
+            
+            if (hasLOS) {
+                enemy.aiState = 'chase';
+                enemy.lastKnownX = player.x;
+                enemy.lastKnownZ = player.z;
+            } else if (enemy.aiState === 'chase') {
+                enemy.aiState = 'search';
+            }
+            
+            let moveSpeed = enemy.speed * timeDilationFactor;
+            
+            if (enemy.aiState === 'chase') {
+                // Move towards player
+                if (enemy.type === 'mover' && dist > 2) {
+                    enemy.x += (dx / dist) * moveSpeed * dt;
+                    enemy.z += (dz / dist) * moveSpeed * dt;
+                }
                 
-                let dx = player.x - enemy.x;
-                let edy = (player.y + player.eyeHeight) - (enemy.y + 1);
-                let dz = player.z - enemy.z;
-                let dist = Math.sqrt(dx*dx + edy*edy + dz*dz);
-                
-                projectiles.push({
-                    x: enemy.x, y: enemy.y + 1, z: enemy.z,
-                    vx: (dx / dist) * 15, vy: (edy / dist) * 15, vz: (dz / dist) * 15,
-                    active: true, owner: 'enemy'
-                });
+                // Shoot
+                if (now > enemy.nextShoot) {
+                    enemy.nextShoot = now + 1.5 * (1 / timeDilationFactor); // Shoot every 1.5s
+                    projectiles.push({
+                        x: enemy.x, y: enemy.y + 1, z: enemy.z,
+                        vx: (dx / dist) * 15, vy: (edy / dist) * 15, vz: (dz / dist) * 15,
+                        active: true, owner: 'enemy'
+                    });
+                }
+            } else if (enemy.aiState === 'search') {
+                // Move towards last known
+                if (enemy.type === 'mover') {
+                    let ldx = enemy.lastKnownX - enemy.x;
+                    let ldz = enemy.lastKnownZ - enemy.z;
+                    let ldist = Math.sqrt(ldx*ldx + ldz*ldz);
+                    
+                    if (ldist > 0.5) {
+                        enemy.x += (ldx / ldist) * moveSpeed * dt;
+                        enemy.z += (ldz / ldist) * moveSpeed * dt;
+                    } else {
+                        enemy.aiState = 'idle';
+                    }
+                } else {
+                    enemy.aiState = 'idle';
+                }
             }
         }
         
@@ -507,6 +611,21 @@ function gameLoop(time) {
             p.x += p.vx * dt * timeScale;
             p.y += p.vy * dt * timeScale;
             p.z += p.vz * dt * timeScale;
+            
+            // Wall Collision Check
+            let hitWall = false;
+            for(let b of mapData.blocks) {
+                if (p.x >= b.x - b.w/2 && p.x <= b.x + b.w/2 &&
+                    p.y >= b.y && p.y <= b.y + b.h &&
+                    p.z >= b.z - b.d/2 && p.z <= b.z + b.d/2) {
+                    hitWall = true;
+                    break;
+                }
+            }
+            if (hitWall) {
+                p.active = false;
+                continue;
+            }
             
             if (p.owner === 'enemy') {
                 // Check collision with player
