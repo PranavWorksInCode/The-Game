@@ -34,16 +34,9 @@
         <button id="btn-save-play" style="background: #00cc66; font-size: 1.1em; font-weight: bold;">Save & Play</button>
         <button id="btn-back">Back to Game</button>
         
-        <div class="section-title">Floors (Z-Levels)</div>
-        <select id="floor-select"></select>
-        <button id="btn-add-floor">+ Add Floor Above</button>
-        <button id="btn-add-floor-below">+ Add Floor Below</button>
-        <label>Floor Y Elevation: <input type="number" id="floor-y-input" step="1"></label>
-        
         <div class="section-title">Tools</div>
         <button id="tool-select" class="tool-btn active-btn">Select Object</button>
         <button id="tool-block" class="tool-btn">Draw Block</button>
-        <button id="tool-ramp" class="tool-btn">Draw Ramp</button>
         <button id="tool-erase" class="tool-btn">Erase</button>
         
         <div class="section-title">Entities</div>
@@ -57,7 +50,6 @@
     
     <div id="center-panel">
         <div style="position: absolute; top: 10px; left: 10px; color: #888; font-family: monospace;">
-            Floor: <span id="lbl-floor">0</span> | Y: <span id="lbl-floor-y">0</span><br>
             Use Mouse Wheel to zoom.
         </div>
         <canvas id="editor-canvas" width="800" height="800"></canvas>
@@ -87,18 +79,6 @@
                 <label>HP: <input type="number" id="prop-hp"></label>
                 <label>Texture (PNG/JPG):<input type="file" id="prop-texture-file" accept="image/png, image/jpeg"></label>
                 <button id="btn-clear-texture" style="font-size: 10px;">Clear Texture</button>
-            </div>
-            
-            <div class="prop-group" id="prop-ramp" style="display:none;">
-                <label>Color: <input type="color" id="prop-ramp-color"></label>
-                <label>Direction:
-                    <select id="prop-ramp-dir">
-                        <option value="N">North (-Z)</option>
-                        <option value="S">South (+Z)</option>
-                        <option value="E">East (+X)</option>
-                        <option value="W">West (-X)</option>
-                    </select>
-                </label>
             </div>
             
             <div class="prop-group" id="prop-enemy" style="display:none;">

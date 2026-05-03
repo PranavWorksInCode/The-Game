@@ -44,37 +44,31 @@ let enemies = [
     { id: 2, x: 5,  y: 0, z: -8, hp: 2000, maxHp: 2000, type: 'tank', speed: 0.0, nextShoot: 0 }
 ];
 
-// Load Custom Map from Local Storage V2
-const savedMapStr = localStorage.getItem('customMapV2');
+// Load Custom Map from Local Storage V3
+const savedMapStr = localStorage.getItem('customMapV3');
 if (savedMapStr) {
     try {
         const savedData = JSON.parse(savedMapStr);
         mapData = savedData;
         
         enemies = [];
-        for(let floor of mapData.floors) {
-            for(let obj of floor.objects) {
-                if (obj.type === 'mover' || obj.type === 'tank') {
-                    // Set enemy Y to floor Y
-                    obj.y = floor.y;
-                    obj.maxHp = obj.hp;
-                    obj.nextShoot = 0;
-                    enemies.push(obj);
-                }
+        for(let obj of mapData.objects) {
+            if (obj.type === 'mover' || obj.type === 'tank') {
+                obj.y = 0; // Flat world
+                obj.maxHp = obj.hp;
+                obj.nextShoot = 0;
+                enemies.push(obj);
             }
         }
         
         if (savedData.playerStart) {
             player.x = savedData.playerStart.x;
             player.z = savedData.playerStart.z;
-            // Find the Y of the floor they started on
-            if (savedData.floors[savedData.playerStart.floorIndex]) {
-                player.y = savedData.floors[savedData.playerStart.floorIndex].y;
-            }
+            player.y = 0;
         }
-        console.log("Loaded custom map V2!");
+        console.log("Loaded custom map V3!");
     } catch(e) {
-        console.error("Failed to load map data V2");
+        console.error("Failed to load map data V3");
     }
 }
 

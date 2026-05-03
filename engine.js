@@ -45,40 +45,12 @@ class Engine {
         this.projMeshes = [];
     }
 
-    createWedgeGeometry(w, h, d, dir) {
-        const geo = new THREE.BufferGeometry();
-        // Ramp slopes up towards North (-Z)
-        const vertices = new Float32Array([
-            // Base
-            -w/2, 0, d/2,   w/2, 0, -d/2,   -w/2, 0, -d/2,
-            -w/2, 0, d/2,   w/2, 0, d/2,    w/2, 0, -d/2,
-            // Slope
-            -w/2, 0, d/2,   w/2, h, -d/2,   w/2, 0, d/2,
-            -w/2, 0, d/2,   -w/2, h, -d/2,  w/2, h, -d/2,
-            // Back Wall
-            -w/2, 0, -d/2,   w/2, h, -d/2,   -w/2, h, -d/2,
-            -w/2, 0, -d/2,   w/2, 0, -d/2,   w/2, h, -d/2,
-            // Left Wall
-            -w/2, 0, d/2,   -w/2, h, -d/2,  -w/2, 0, -d/2,
-            // Right Wall
-            w/2, 0, d/2,    w/2, 0, -d/2,   w/2, h, -d/2
-        ]);
-        geo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-        geo.computeVertexNormals();
-        
-        if (dir === 'S') geo.rotateY(Math.PI);
-        else if (dir === 'E') geo.rotateY(-Math.PI/2);
-        else if (dir === 'W') geo.rotateY(Math.PI/2);
-        
-        return geo;
-    }
-
     buildMap() {
         const texLoader = new THREE.TextureLoader();
         
-        let floors = this.mapData.floors || [];
+        let objects = this.mapData.objects || [];
         
-        // Default ground plane just in case
+        // Default ground plane
         const groundGeo = new THREE.PlaneGeometry(200, 200);
         const groundMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
         const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -87,36 +59,27 @@ class Engine {
         this.scene.add(ground);
         this.collisionMeshes.push(ground);
 
-        for (let floor of floors) {
-            let floorY = floor.y || 0;
-            
-            for (let obj of floor.objects) {
-                if (obj.type === 'block' || obj.type === 'ramp') {
-                    let geo;
-                    if (obj.type === 'block') {
-                        geo = new THREE.BoxGeometry(obj.w, obj.h, obj.d);
-                        geo.translate(0, obj.h/2, 0); // Bottom align
-                    } else {
-                        geo = this.createWedgeGeometry(obj.w, obj.h, obj.d, obj.dir);
-                    }
-                    
-                    let matParams = { color: obj.color || 0x888888 };
-                    if (obj.textureBase64) {
-                        matParams.map = texLoader.load(obj.textureBase64);
-                        matParams.map.magFilter = THREE.NearestFilter; // retro look
-                        matParams.color = 0xffffff;
-                    }
-                    let mat = new THREE.MeshLambertMaterial(matParams);
-                    let mesh = new THREE.Mesh(geo, mat);
-                    
-                    mesh.position.set(obj.x, floorY, obj.z);
-                    this.scene.add(mesh);
-                    this.collisionMeshes.push(mesh);
-                    
-                    if (obj.breakable) {
-                        mesh.userData = { id: obj.id, hp: obj.hp };
-                        this.blockMeshes.push(mesh);
-                    }
+        for (let obj of objects) {
+            if (obj.type === 'block') {
+                let geo = new THREE.BoxGeometry(obj.w, obj.h, obj.d);
+                geo.translate(0, obj.h/2, 0); // Bottom align
+                
+                let matParams = { color: obj.color || 0x888888 };
+                if (obj.textureBase64) {
+                    matParams.map = texLoader.load(obj.textureBase64);
+                    matParams.map.magFilter = THREE.NearestFilter; // retro look
+                    matParams.color = 0xffffff;
+                }
+                let mat = new THREE.MeshLambertMaterial(matParams);
+                let mesh = new THREE.Mesh(geo, mat);
+                
+                mesh.position.set(obj.x, 0, obj.z);
+                this.scene.add(mesh);
+                this.collisionMeshes.push(mesh);
+                
+                if (obj.breakable) {
+                    mesh.userData = { id: obj.id, hp: obj.hp };
+                    this.blockMeshes.push(mesh);
                 }
             }
         }

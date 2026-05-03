@@ -1,25 +1,17 @@
 const canvas = document.getElementById('editor-canvas');
 const ctx = canvas.getContext('2d');
 
-// Editor State
-let floors = [
-    { y: 0, objects: [] } // Floor 0
-];
-let currentFloorIndex = 0;
-let playerStart = { x: 0, y: 0, z: 5, floorIndex: 0 };
+// Editor State (Flattened)
+let objects = [];
+let playerStart = { x: 0, z: 5 };
 let selectedObject = null;
-let currentTool = 'select'; // select, block, ramp, erase, player, mover, tank
+let currentTool = 'select'; // select, block, erase, player, mover, tank
 
 // UI Elements
-const floorSelect = document.getElementById('floor-select');
-const floorYInput = document.getElementById('floor-y-input');
-const lblFloor = document.getElementById('lbl-floor');
-const lblFloorY = document.getElementById('lbl-floor-y');
 const outlinerList = document.getElementById('outliner-list');
 const propertiesPanel = document.getElementById('properties-panel');
 
 // Constants
-const GRID_SIZE = 40;
 const CELL_SIZE = 20;
 
 // Utility for unique IDs
@@ -31,8 +23,6 @@ function generateId() {
 function screenToWorld(cx, cy) {
     let hw = canvas.width / 2;
     let hh = canvas.height / 2;
-    // cx, cy are in pixels. Center of canvas is 0,0 in world.
-    // 1 cell = 20 pixels = 2 world units.
     let x = ((cx - hw) / CELL_SIZE) * 2;
     let z = ((cy - hh) / CELL_SIZE) * 2;
     return { x, z };
@@ -46,53 +36,10 @@ function worldToScreen(x, z) {
     return { cx, cy };
 }
 
-// Floor Management
-function updateFloorUI() {
-    floorSelect.innerHTML = '';
-    floors.forEach((f, i) => {
-        let opt = document.createElement('option');
-        opt.value = i;
-        opt.innerText = `Floor ${i} (Y: ${f.y})`;
-        if (i === currentFloorIndex) opt.selected = true;
-        floorSelect.appendChild(opt);
-    });
-    lblFloor.innerText = currentFloorIndex;
-    lblFloorY.innerText = floors[currentFloorIndex].y;
-    floorYInput.value = floors[currentFloorIndex].y;
-    updateOutliner();
-    drawCanvas();
-}
-
-document.getElementById('btn-add-floor').addEventListener('click', () => {
-    let highestY = floors.reduce((max, f) => Math.max(max, f.y), -999);
-    floors.push({ y: highestY + 5, objects: [] });
-    currentFloorIndex = floors.length - 1;
-    updateFloorUI();
-});
-
-document.getElementById('btn-add-floor-below').addEventListener('click', () => {
-    let lowestY = floors.reduce((min, f) => Math.min(min, f.y), 999);
-    floors.push({ y: lowestY - 5, objects: [] });
-    currentFloorIndex = floors.length - 1;
-    updateFloorUI();
-});
-
-floorSelect.addEventListener('change', (e) => {
-    currentFloorIndex = parseInt(e.target.value);
-    selectObject(null);
-    updateFloorUI();
-});
-
-floorYInput.addEventListener('change', (e) => {
-    floors[currentFloorIndex].y = parseFloat(e.target.value);
-    updateFloorUI();
-});
-
 // Outliner & Selection
 function updateOutliner() {
     outlinerList.innerHTML = '';
-    let floor = floors[currentFloorIndex];
-    floor.objects.forEach(obj => {
+    objects.forEach(obj => {
         let div = document.createElement('div');
         div.className = 'outliner-item' + (selectedObject === obj ? ' selected' : '');
         div.innerText = `${obj.type} [${obj.id}]`;
@@ -119,11 +66,10 @@ function selectObject(obj) {
     document.getElementById('prop-z').value = obj.z;
     document.getElementById('prop-w').value = obj.w || 2;
     document.getElementById('prop-d').value = obj.d || 2;
-    document.getElementById('prop-h').value = obj.h || 1;
+    document.getElementById('prop-h').value = obj.h || 5; // Default classic height is usually taller
     
     // Type specific
     document.getElementById('prop-block').style.display = 'none';
-    document.getElementById('prop-ramp').style.display = 'none';
     document.getElementById('prop-enemy').style.display = 'none';
     
     if (obj.type === 'block') {
@@ -131,10 +77,6 @@ function selectObject(obj) {
         document.getElementById('prop-color').value = obj.color;
         document.getElementById('prop-breakable').checked = obj.breakable;
         document.getElementById('prop-hp').value = obj.hp;
-    } else if (obj.type === 'ramp') {
-        document.getElementById('prop-ramp').style.display = 'block';
-        document.getElementById('prop-ramp-color').value = obj.color;
-        document.getElementById('prop-ramp-dir').value = obj.dir;
     } else if (obj.type === 'mover' || obj.type === 'tank') {
         document.getElementById('prop-enemy').style.display = 'block';
         document.getElementById('prop-enemy-hp').value = obj.hp;
@@ -167,17 +109,13 @@ bindInput('prop-color', 'color');
 bindInput('prop-breakable', 'breakable');
 bindInput('prop-hp', 'hp', true);
 
-bindInput('prop-ramp-color', 'color');
-bindInput('prop-ramp-dir', 'dir');
-
 bindInput('prop-enemy-hp', 'hp', true);
 bindInput('prop-enemy-dmg', 'damage', true);
 bindInput('prop-enemy-speed', 'speed', true);
 
 document.getElementById('btn-delete-obj').addEventListener('click', () => {
     if (!selectedObject) return;
-    let floor = floors[currentFloorIndex];
-    floor.objects = floor.objects.filter(o => o !== selectedObject);
+    objects = objects.filter(o => o !== selectedObject);
     selectObject(null);
 });
 
@@ -230,11 +168,9 @@ canvas.addEventListener('mousedown', (e) => {
     wPos.z = Math.round(wPos.z / 2) * 2;
     
     if (currentTool === 'select') {
-        // Find clicked object
-        let floor = floors[currentFloorIndex];
         let clicked = null;
-        for(let i = floor.objects.length - 1; i >= 0; i--) {
-            let o = floor.objects[i];
+        for(let i = objects.length - 1; i >= 0; i--) {
+            let o = objects[i];
             if (wPos.x >= o.x - o.w/2 && wPos.x <= o.x + o.w/2 &&
                 wPos.z >= o.z - o.d/2 && wPos.z <= o.z + o.d/2) {
                 clicked = o;
@@ -242,10 +178,10 @@ canvas.addEventListener('mousedown', (e) => {
             }
         }
         selectObject(clicked);
-    } else if (currentTool === 'block' || currentTool === 'ramp') {
+    } else if (currentTool === 'block') {
         dragStart = wPos;
     } else if (currentTool === 'player') {
-        playerStart = { x: wPos.x, y: floors[currentFloorIndex].y, z: wPos.z, floorIndex: currentFloorIndex };
+        playerStart = { x: wPos.x, z: wPos.z };
         drawCanvas();
     } else if (currentTool === 'mover' || currentTool === 'tank') {
         let obj = {
@@ -257,15 +193,14 @@ canvas.addEventListener('mousedown', (e) => {
             speed: currentTool==='tank'?0:4,
             modelBase64: null
         };
-        floors[currentFloorIndex].objects.push(obj);
+        objects.push(obj);
         selectObject(obj);
     }
 });
 
 canvas.addEventListener('mousemove', (e) => {
     if (!isMouseDown) return;
-    if (currentTool === 'block' || currentTool === 'ramp') {
-        // Show drag preview via drawCanvas
+    if (currentTool === 'block') {
         const rect = canvas.getBoundingClientRect();
         let wPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
         wPos.x = Math.round(wPos.x / 2) * 2;
@@ -275,7 +210,7 @@ canvas.addEventListener('mousemove', (e) => {
 });
 
 canvas.addEventListener('mouseup', (e) => {
-    if (isMouseDown && (currentTool === 'block' || currentTool === 'ramp') && dragStart) {
+    if (isMouseDown && currentTool === 'block' && dragStart) {
         const rect = canvas.getBoundingClientRect();
         let wPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
         wPos.x = Math.round(wPos.x / 2) * 2;
@@ -293,20 +228,15 @@ canvas.addEventListener('mouseup', (e) => {
         
         let obj = {
             id: generateId(),
-            type: currentTool,
-            x, z, w, d, h: 2,
-            color: '#888888'
+            type: 'block',
+            x, z, w, d, h: 5, // Doom style walls are tall
+            color: '#888888',
+            breakable: false,
+            hp: 100,
+            textureBase64: null
         };
         
-        if (currentTool === 'block') {
-            obj.breakable = false;
-            obj.hp = 100;
-            obj.textureBase64 = null;
-        } else if (currentTool === 'ramp') {
-            obj.dir = 'N'; // default slope up towards North (-Z)
-        }
-        
-        floors[currentFloorIndex].objects.push(obj);
+        objects.push(obj);
         selectObject(obj);
     }
     isMouseDown = false;
@@ -326,10 +256,8 @@ function drawCanvas(dragPos = null) {
         ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
     }
     
-    let floor = floors[currentFloorIndex];
-    
     // Draw Objects
-    floor.objects.forEach(o => {
+    objects.forEach(o => {
         let sc = worldToScreen(o.x, o.z);
         let sw = (o.w / 2) * CELL_SIZE;
         let sd = (o.d / 2) * CELL_SIZE;
@@ -338,16 +266,9 @@ function drawCanvas(dragPos = null) {
         ctx.strokeStyle = (selectedObject === o) ? '#fff' : '#000';
         ctx.lineWidth = (selectedObject === o) ? 3 : 1;
         
-        if (o.type === 'block' || o.type === 'ramp') {
+        if (o.type === 'block') {
             ctx.fillRect(sc.cx - sw, sc.cy - sd, sw*2, sd*2);
             ctx.strokeRect(sc.cx - sw, sc.cy - sd, sw*2, sd*2);
-            
-            if (o.type === 'ramp') {
-                ctx.fillStyle = '#000';
-                ctx.font = '16px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(o.dir, sc.cx, sc.cy + 6);
-            }
         } else {
             ctx.beginPath();
             ctx.arc(sc.cx, sc.cy, CELL_SIZE/2, 0, Math.PI*2);
@@ -376,25 +297,23 @@ function drawCanvas(dragPos = null) {
     }
     
     // Draw Player
-    if (playerStart.floorIndex === currentFloorIndex) {
-        let psc = worldToScreen(playerStart.x, playerStart.z);
-        ctx.fillStyle = '#0f0';
-        ctx.beginPath();
-        ctx.arc(psc.cx, psc.cy, CELL_SIZE/2, 0, Math.PI*2);
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.stroke();
-    }
+    let psc = worldToScreen(playerStart.x, playerStart.z);
+    ctx.fillStyle = '#0f0';
+    ctx.beginPath();
+    ctx.arc(psc.cx, psc.cy, CELL_SIZE/2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
 }
 
 // Save & Load
 document.getElementById('btn-save-play').addEventListener('click', () => {
     let finalSave = {
-        floors: floors,
+        objects: objects,
         playerStart: playerStart
     };
     try {
-        localStorage.setItem('customMapV2', JSON.stringify(finalSave));
+        localStorage.setItem('customMapV3', JSON.stringify(finalSave));
         window.location.href = 'index.html';
     } catch(e) {
         alert("Failed to save map! If you uploaded very large 3D models, they might exceed localStorage quota.");
@@ -402,10 +321,10 @@ document.getElementById('btn-save-play').addEventListener('click', () => {
 });
 
 document.getElementById('btn-clear').addEventListener('click', () => {
-    floors = [{ y: 0, objects: [] }];
-    currentFloorIndex = 0;
+    objects = [];
     selectObject(null);
-    updateFloorUI();
+    updateOutliner();
+    drawCanvas();
 });
 
 document.getElementById('btn-back').addEventListener('click', () => {
@@ -413,13 +332,14 @@ document.getElementById('btn-back').addEventListener('click', () => {
 });
 
 // Load existing
-const existing = localStorage.getItem('customMapV2');
+const existing = localStorage.getItem('customMapV3');
 if (existing) {
     try {
         let parsed = JSON.parse(existing);
-        floors = parsed.floors || [{ y: 0, objects: [] }];
-        playerStart = parsed.playerStart || { x: 0, y: 0, z: 5, floorIndex: 0 };
+        objects = parsed.objects || [];
+        playerStart = parsed.playerStart || { x: 0, z: 5 };
     } catch(e) {}
 }
 
-updateFloorUI();
+updateOutliner();
+drawCanvas();
