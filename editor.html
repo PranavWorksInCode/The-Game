@@ -2,71 +2,115 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Level Editor - The Game</title>
+    <title>Advanced Level Editor - The Game</title>
     <style>
-        body { 
-            margin: 0; padding: 20px; 
-            font-family: 'Courier New', Courier, monospace; 
-            background: #222; color: #fff; 
-            display: flex; flex-direction: row; gap: 20px; 
-            height: 100vh; box-sizing: border-box;
+        body { margin: 0; display: flex; height: 100vh; background: #222; color: #fff; font-family: sans-serif; overflow: hidden; }
+        .panel { padding: 15px; background: #333; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        #left-panel { width: 250px; border-right: 1px solid #555; }
+        #center-panel { flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #111; overflow: auto; position: relative; }
+        #right-panel { width: 300px; border-left: 1px solid #555; }
+        
+        canvas { background: #000; border: 1px solid #555; cursor: crosshair; }
+        button, input[type="number"], input[type="color"], select, input[type="file"] { 
+            padding: 8px; background: #555; color: white; border: 1px solid #777; width: 100%; box-sizing: border-box; margin-bottom: 5px; 
         }
-        #toolbar { 
-            width: 300px; background: #333; 
-            padding: 20px; border-radius: 8px; 
-            overflow-y: auto;
-        }
-        #canvas-container { 
-            flex-grow: 1; display: flex; 
-            align-items: center; justify-content: center; 
-            background: #111; border: 2px solid #555; 
-            overflow: auto; border-radius: 8px;
-        }
-        canvas { 
-            background: #000; cursor: crosshair; 
-        }
-        .tool-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 5px; }
-        button, input { 
-            width: 100%; padding: 10px; margin-bottom: 10px; 
-            background: #555; color: white; border: 1px solid #777; 
-            cursor: pointer; box-sizing: border-box;
-        }
-        button:hover { background: #666; }
-        .active-tool { background: #33ccff; color: black; font-weight: bold; }
+        button:hover { background: #666; cursor: pointer; }
+        .active-btn { background: #0088ff; font-weight: bold; }
+        .section-title { margin-top: 15px; margin-bottom: 5px; border-bottom: 1px solid #555; padding-bottom: 5px; font-weight: bold; color: #aaa; }
+        
+        /* Outliner List */
+        #outliner-list { flex-grow: 1; border: 1px solid #555; background: #2a2a2a; overflow-y: auto; min-height: 150px; margin-bottom: 15px;}
+        .outliner-item { padding: 5px; border-bottom: 1px solid #444; cursor: pointer; font-family: monospace; font-size: 12px; }
+        .outliner-item:hover { background: #444; }
+        .outliner-item.selected { background: #0055aa; color: white; }
+        
+        label { font-size: 13px; display: block; margin-top: 5px; color: #ccc;}
+        .prop-group { border: 1px solid #444; padding: 10px; background: #2a2a2a; margin-top: 5px;}
     </style>
 </head>
 <body>
-    <div id="toolbar">
-        <h2>Level Editor</h2>
+    <div id="left-panel" class="panel">
+        <h2 style="margin: 0;">Level Editor</h2>
+        <button id="btn-save-play" style="background: #00cc66; font-size: 1.1em; font-weight: bold;">Save & Play</button>
+        <button id="btn-back">Back to Game</button>
         
-        <div class="tool-group">
-            <h3>Tools</h3>
-            <button id="tool-draw" class="active-tool">Draw Block</button>
-            <button id="tool-erase">Erase</button>
-            <button id="tool-player">Place Player Start</button>
-            <button id="tool-mover">Place Mover Enemy</button>
-            <button id="tool-tank">Place Tank Enemy</button>
-        </div>
-
-        <div class="tool-group" id="block-settings">
-            <h3>Block Settings</h3>
-            <label>Color</label>
-            <input type="color" id="block-color" value="#888888">
-            <label>Height (1-5)</label>
-            <input type="range" id="block-height" min="1" max="5" value="1">
-            <span id="height-val">Height: 1</span>
-        </div>
-
-        <div class="tool-group">
-            <button id="btn-save-play" style="background: #00cc66; font-size: 1.2em; font-weight: bold;">Save & Play</button>
-            <button id="btn-clear" style="background: #cc0000;">Clear Map</button>
-            <button id="btn-back" style="background: #444;">Back to Game</button>
-        </div>
+        <div class="section-title">Floors (Z-Levels)</div>
+        <select id="floor-select"></select>
+        <button id="btn-add-floor">+ Add Floor Above</button>
+        <button id="btn-add-floor-below">+ Add Floor Below</button>
+        <label>Floor Y Elevation: <input type="number" id="floor-y-input" step="1"></label>
+        
+        <div class="section-title">Tools</div>
+        <button id="tool-select" class="tool-btn active-btn">Select Object</button>
+        <button id="tool-block" class="tool-btn">Draw Block</button>
+        <button id="tool-ramp" class="tool-btn">Draw Ramp</button>
+        <button id="tool-erase" class="tool-btn">Erase</button>
+        
+        <div class="section-title">Entities</div>
+        <button id="tool-player" class="tool-btn">Place Player</button>
+        <button id="tool-mover" class="tool-btn">Place Mover</button>
+        <button id="tool-tank" class="tool-btn">Place Tank</button>
+        
+        <div class="section-title">Global</div>
+        <button id="btn-clear" style="background: #cc0000;">Clear Map</button>
     </div>
     
-    <div id="canvas-container">
+    <div id="center-panel">
+        <div style="position: absolute; top: 10px; left: 10px; color: #888; font-family: monospace;">
+            Floor: <span id="lbl-floor">0</span> | Y: <span id="lbl-floor-y">0</span><br>
+            Use Mouse Wheel to zoom.
+        </div>
         <canvas id="editor-canvas" width="800" height="800"></canvas>
+    </div>
+    
+    <div id="right-panel" class="panel">
+        <div class="section-title">Outliner</div>
+        <div id="outliner-list"></div>
+        
+        <div class="section-title">Properties</div>
+        <div id="properties-panel" style="display: none;">
+            <h3 id="prop-title" style="margin: 0; color: #00ffcc;">Object</h3>
+            
+            <div class="prop-group" id="prop-transform">
+                <label>X: <input type="number" id="prop-x" step="0.5"></label>
+                <label>Z: <input type="number" id="prop-z" step="0.5"></label>
+                <label>Width: <input type="number" id="prop-w" step="0.5"></label>
+                <label>Depth: <input type="number" id="prop-d" step="0.5"></label>
+                <label>Height: <input type="number" id="prop-h" step="0.5"></label>
+            </div>
+            
+            <div class="prop-group" id="prop-block" style="display:none;">
+                <label>Color: <input type="color" id="prop-color"></label>
+                <label style="display: flex; align-items: center; gap: 5px;">
+                    <input type="checkbox" id="prop-breakable" style="width: auto;"> Breakable
+                </label>
+                <label>HP: <input type="number" id="prop-hp"></label>
+                <label>Texture (PNG/JPG):<input type="file" id="prop-texture-file" accept="image/png, image/jpeg"></label>
+                <button id="btn-clear-texture" style="font-size: 10px;">Clear Texture</button>
+            </div>
+            
+            <div class="prop-group" id="prop-ramp" style="display:none;">
+                <label>Color: <input type="color" id="prop-ramp-color"></label>
+                <label>Direction:
+                    <select id="prop-ramp-dir">
+                        <option value="N">North (-Z)</option>
+                        <option value="S">South (+Z)</option>
+                        <option value="E">East (+X)</option>
+                        <option value="W">West (-X)</option>
+                    </select>
+                </label>
+            </div>
+            
+            <div class="prop-group" id="prop-enemy" style="display:none;">
+                <label>HP: <input type="number" id="prop-enemy-hp"></label>
+                <label>Damage: <input type="number" id="prop-enemy-dmg"></label>
+                <label>Speed: <input type="number" id="prop-enemy-speed" step="0.5"></label>
+                <label>Custom Model (.glb):<input type="file" id="prop-model-file" accept=".glb"></label>
+                <button id="btn-clear-model" style="font-size: 10px;">Clear Model</button>
+            </div>
+            
+            <button id="btn-delete-obj" style="background: #cc0000; margin-top: 15px;">Delete Object</button>
+        </div>
     </div>
 
     <script src="editor.js"></script>

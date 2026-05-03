@@ -44,18 +44,37 @@ let enemies = [
     { id: 2, x: 5,  y: 0, z: -8, hp: 2000, maxHp: 2000, type: 'tank', speed: 0.0, nextShoot: 0 }
 ];
 
-// Load Custom Map from Local Storage
-const savedMapStr = localStorage.getItem('customMap');
+// Load Custom Map from Local Storage V2
+const savedMapStr = localStorage.getItem('customMapV2');
 if (savedMapStr) {
     try {
         const savedData = JSON.parse(savedMapStr);
-        mapData = savedData.mapData;
-        enemies = savedData.enemies;
-        player.x = savedData.playerStart.x;
-        player.z = savedData.playerStart.z;
-        console.log("Loaded custom map!");
+        mapData = savedData;
+        
+        enemies = [];
+        for(let floor of mapData.floors) {
+            for(let obj of floor.objects) {
+                if (obj.type === 'mover' || obj.type === 'tank') {
+                    // Set enemy Y to floor Y
+                    obj.y = floor.y;
+                    obj.maxHp = obj.hp;
+                    obj.nextShoot = 0;
+                    enemies.push(obj);
+                }
+            }
+        }
+        
+        if (savedData.playerStart) {
+            player.x = savedData.playerStart.x;
+            player.z = savedData.playerStart.z;
+            // Find the Y of the floor they started on
+            if (savedData.floors[savedData.playerStart.floorIndex]) {
+                player.y = savedData.floors[savedData.playerStart.floorIndex].y;
+            }
+        }
+        console.log("Loaded custom map V2!");
     } catch(e) {
-        console.error("Failed to load map data");
+        console.error("Failed to load map data V2");
     }
 }
 
@@ -314,99 +333,72 @@ document.addEventListener('mousemove', (e) => {
     }
 });
 
-// Physics and Collision
-function checkAABB(px, py, pz, box) {
-    return (px + player.radius > box.minX && px - player.radius < box.maxX &&
-            py + player.eyeHeight > box.minY && py < box.maxY &&
-            pz + player.radius > box.minZ && pz - player.radius < box.maxZ);
-}
+// Physics and Collision via THREE.Raycaster
+const physicsRay = new THREE.Raycaster();
 
 function checkLineOfSight(x1, y1, z1, x2, y2, z2) {
-    let dx = x2 - x1;
-    let dy = y2 - y1;
-    let dz = z2 - z1;
-    let dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    let origin = new THREE.Vector3(x1, y1, z1);
+    let target = new THREE.Vector3(x2, y2, z2);
+    let dir = target.clone().sub(origin);
+    let dist = dir.length();
+    dir.normalize();
     
-    let dirX = dx / dist;
-    let dirY = dy / dist;
-    let dirZ = dz / dist;
+    physicsRay.set(origin, dir);
+    let hits = physicsRay.intersectObjects(engine.collisionMeshes, true);
     
-    dirX = dirX === 0 ? 0.00001 : dirX;
-    dirY = dirY === 0 ? 0.00001 : dirY;
-    dirZ = dirZ === 0 ? 0.00001 : dirZ;
-    
-    let invDirX = 1.0 / dirX;
-    let invDirY = 1.0 / dirY;
-    let invDirZ = 1.0 / dirZ;
-
-    for (let b of mapData.blocks) {
-        let minX = b.x - b.w/2;
-        let maxX = b.x + b.w/2;
-        let minY = b.y;
-        let maxY = b.y + b.h;
-        let minZ = b.z - b.d/2;
-        let maxZ = b.z + b.d/2;
-        
-        let t1 = (minX - x1) * invDirX;
-        let t2 = (maxX - x1) * invDirX;
-        let t3 = (minY - y1) * invDirY;
-        let t4 = (maxY - y1) * invDirY;
-        let t5 = (minZ - z1) * invDirZ;
-        let t6 = (maxZ - z1) * invDirZ;
-
-        let tmin = Math.max(Math.max(Math.min(t1, t2), Math.min(t3, t4)), Math.min(t5, t6));
-        let tmax = Math.min(Math.min(Math.max(t1, t2), Math.max(t3, t4)), Math.max(t5, t6));
-
-        if (tmax >= 0 && tmin <= tmax) {
-            if (tmin < dist && tmin > 0) {
-                return false; // Blocked by wall
-            }
-        }
+    if (hits.length > 0 && hits[0].distance < dist) {
+        return false; // Hit a wall before reaching target
     }
     return true;
 }
 
 function movePlayer(dx, dy, dz) {
-    // Move X
+    // Horizontal Movement (X/Z)
+    if (Math.abs(dx) > 0.001) {
+        let dirX = dx > 0 ? new THREE.Vector3(1,0,0) : new THREE.Vector3(-1,0,0);
+        physicsRay.set(new THREE.Vector3(player.x, player.y + 0.5, player.z), dirX);
+        let hits = physicsRay.intersectObjects(engine.collisionMeshes, true);
+        if (hits.length > 0 && hits[0].distance < player.radius + Math.abs(dx)) dx = 0;
+    }
+    
+    if (Math.abs(dz) > 0.001) {
+        let dirZ = dz > 0 ? new THREE.Vector3(0,0,1) : new THREE.Vector3(0,0,-1);
+        physicsRay.set(new THREE.Vector3(player.x + dx, player.y + 0.5, player.z), dirZ);
+        let hits = physicsRay.intersectObjects(engine.collisionMeshes, true);
+        if (hits.length > 0 && hits[0].distance < player.radius + Math.abs(dz)) dz = 0;
+    }
+    
     player.x += dx;
-    for(let box of engine.colliders) {
-        if (checkAABB(player.x, player.y, player.z, box)) {
-            player.x -= dx; // Revert
-            break;
-        }
-    }
-    
-    // Move Z
     player.z += dz;
-    for(let box of engine.colliders) {
-        if (checkAABB(player.x, player.y, player.z, box)) {
-            player.z -= dz; // Revert
-            break;
-        }
-    }
     
-    // Move Y
+    // Vertical Movement & Ramps (Y)
     player.y += dy;
+    
+    let rayOrigin = new THREE.Vector3(player.x, player.y + player.eyeHeight, player.z);
+    physicsRay.set(rayOrigin, new THREE.Vector3(0, -1, 0));
+    let hits = physicsRay.intersectObjects(engine.collisionMeshes, true);
+    
     player.isGrounded = false;
-    for(let box of engine.colliders) {
-        if (checkAABB(player.x, player.y, player.z, box)) {
-            if (dy < 0) { // Falling down onto a box
-                player.y = box.maxY;
+    
+    if (hits.length > 0) {
+        let groundY = hits[0].point.y;
+        if (player.y <= groundY + 0.1) { // Snap to ramp
+            player.y = groundY;
+            if (dy <= 0) {
                 player.yVelocity = 0;
                 player.isGrounded = true;
-            } else if (dy > 0) { // Hitting ceiling
-                player.y = box.minY - player.eyeHeight;
-                player.yVelocity = 0;
             }
-            break;
         }
+    } else if (player.y < -50) {
+        player.y = 0; // fallback
+        player.yVelocity = 0;
     }
     
-    // Floor check
-    if (player.y <= 0) {
-        player.y = 0;
-        player.yVelocity = 0;
-        player.isGrounded = true;
+    // Check ceiling
+    if (dy > 0) {
+        physicsRay.set(rayOrigin, new THREE.Vector3(0, 1, 0));
+        let upHits = physicsRay.intersectObjects(engine.collisionMeshes, true);
+        if (upHits.length > 0 && upHits[0].distance < 0.2) player.yVelocity = 0;
     }
 }
 
@@ -605,27 +597,34 @@ function gameLoop(time) {
         for(let p of projectiles) {
             if (!p.active) continue;
             
-            // Time dilation only affects enemy bullets
             let timeScale = (p.owner === 'enemy') ? timeDilationFactor : 1.0;
+            
+            // Raycast ahead for accurate collision and wall-breaking
+            let dir = new THREE.Vector3(p.vx, p.vy, p.vz);
+            let speed = dir.length() * dt * timeScale;
+            dir.normalize();
+            
+            physicsRay.set(new THREE.Vector3(p.x, p.y, p.z), dir);
+            let hits = physicsRay.intersectObjects(engine.collisionMeshes, true);
+            
+            if (hits.length > 0 && hits[0].distance <= speed) {
+                p.active = false; // Hit a wall
+                
+                // Breakable logic
+                let obj = hits[0].object;
+                if (obj.userData && obj.userData.hp !== undefined) {
+                    obj.userData.hp -= p.damage;
+                    if (obj.userData.hp <= 0) {
+                        engine.scene.remove(obj);
+                        engine.collisionMeshes = engine.collisionMeshes.filter(m => m !== obj);
+                    }
+                }
+                continue;
+            }
             
             p.x += p.vx * dt * timeScale;
             p.y += p.vy * dt * timeScale;
             p.z += p.vz * dt * timeScale;
-            
-            // Wall Collision Check
-            let hitWall = false;
-            for(let b of mapData.blocks) {
-                if (p.x >= b.x - b.w/2 && p.x <= b.x + b.w/2 &&
-                    p.y >= b.y && p.y <= b.y + b.h &&
-                    p.z >= b.z - b.d/2 && p.z <= b.z + b.d/2) {
-                    hitWall = true;
-                    break;
-                }
-            }
-            if (hitWall) {
-                p.active = false;
-                continue;
-            }
             
             if (p.owner === 'enemy') {
                 // Check collision with player
@@ -651,7 +650,6 @@ function gameLoop(time) {
                     let edx = p.x - enemy.x;
                     let edy = p.y - (enemy.y + 1); // Center of cylinder
                     let edz = p.z - enemy.z;
-                    // Exact Cylinder collision to prevent hitting invisible edges
                     if (Math.sqrt(edx*edx + edz*edz) <= 0.5 && Math.abs(edy) <= 1.0) {
                         enemy.hp -= p.damage;
                         if (enemy.hp < 0) enemy.hp = 0;
@@ -662,7 +660,7 @@ function gameLoop(time) {
             }
             
             // Cleanup out of bounds
-            if (p.x < -30 || p.x > 30 || p.z < -30 || p.z > 30) p.active = false;
+            if (p.x < -100 || p.x > 100 || p.z < -100 || p.z > 100) p.active = false;
         }
         projectiles = projectiles.filter(p => p.active);
         

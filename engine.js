@@ -36,7 +36,8 @@ class Engine {
         this.scene.add(dirLight);
 
         // Build Map and Colliders
-        this.colliders = [];
+        this.collisionMeshes = [];
+        this.blockMeshes = [];
         this.buildMap();
         
         // Entity storage
@@ -44,30 +45,80 @@ class Engine {
         this.projMeshes = [];
     }
 
-    buildMap() {
-        // Floor
-        const floorGeo = new THREE.PlaneGeometry(100, 100);
-        const floorMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        this.scene.add(floor);
+    createWedgeGeometry(w, h, d, dir) {
+        const geo = new THREE.BufferGeometry();
+        // Ramp slopes up towards North (-Z)
+        const vertices = new Float32Array([
+            // Base
+            -w/2, 0, d/2,   w/2, 0, -d/2,   -w/2, 0, -d/2,
+            -w/2, 0, d/2,   w/2, 0, d/2,    w/2, 0, -d/2,
+            // Slope
+            -w/2, 0, d/2,   w/2, h, -d/2,   w/2, 0, d/2,
+            -w/2, 0, d/2,   -w/2, h, -d/2,  w/2, h, -d/2,
+            // Back Wall
+            -w/2, 0, -d/2,   w/2, h, -d/2,   -w/2, h, -d/2,
+            -w/2, 0, -d/2,   w/2, 0, -d/2,   w/2, h, -d/2,
+            // Left Wall
+            -w/2, 0, d/2,   -w/2, h, -d/2,  -w/2, 0, -d/2,
+            // Right Wall
+            w/2, 0, d/2,    w/2, 0, -d/2,   w/2, h, -d/2
+        ]);
+        geo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        geo.computeVertexNormals();
+        
+        if (dir === 'S') geo.rotateY(Math.PI);
+        else if (dir === 'E') geo.rotateY(-Math.PI/2);
+        else if (dir === 'W') geo.rotateY(Math.PI/2);
+        
+        return geo;
+    }
 
-        // Create boxes from mapData
-        for(let block of this.mapData.blocks) {
-            const geo = new THREE.BoxGeometry(block.w, block.h, block.d);
-            const mat = new THREE.MeshLambertMaterial({ color: block.color });
-            const mesh = new THREE.Mesh(geo, mat);
+    buildMap() {
+        const texLoader = new THREE.TextureLoader();
+        
+        let floors = this.mapData.floors || [];
+        
+        // Default ground plane just in case
+        const groundGeo = new THREE.PlaneGeometry(200, 200);
+        const groundMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.1;
+        this.scene.add(ground);
+        this.collisionMeshes.push(ground);
+
+        for (let floor of floors) {
+            let floorY = floor.y || 0;
             
-            // In Three.js, position is the center of the geometry.
-            mesh.position.set(block.x, block.y + block.h / 2, block.z);
-            this.scene.add(mesh);
-            
-            // Add to our AABB collision list
-            this.colliders.push({
-                minX: block.x - block.w / 2, maxX: block.x + block.w / 2,
-                minY: block.y,               maxY: block.y + block.h,
-                minZ: block.z - block.d / 2, maxZ: block.z + block.d / 2
-            });
+            for (let obj of floor.objects) {
+                if (obj.type === 'block' || obj.type === 'ramp') {
+                    let geo;
+                    if (obj.type === 'block') {
+                        geo = new THREE.BoxGeometry(obj.w, obj.h, obj.d);
+                        geo.translate(0, obj.h/2, 0); // Bottom align
+                    } else {
+                        geo = this.createWedgeGeometry(obj.w, obj.h, obj.d, obj.dir);
+                    }
+                    
+                    let matParams = { color: obj.color || 0x888888 };
+                    if (obj.textureBase64) {
+                        matParams.map = texLoader.load(obj.textureBase64);
+                        matParams.map.magFilter = THREE.NearestFilter; // retro look
+                        matParams.color = 0xffffff;
+                    }
+                    let mat = new THREE.MeshLambertMaterial(matParams);
+                    let mesh = new THREE.Mesh(geo, mat);
+                    
+                    mesh.position.set(obj.x, floorY, obj.z);
+                    this.scene.add(mesh);
+                    this.collisionMeshes.push(mesh);
+                    
+                    if (obj.breakable) {
+                        mesh.userData = { id: obj.id, hp: obj.hp };
+                        this.blockMeshes.push(mesh);
+                    }
+                }
+            }
         }
     }
 
@@ -75,10 +126,9 @@ class Engine {
     render(player, enemies = [], projectiles = []) {
         // Update Camera Position
         this.camera.position.x = player.x;
-        this.camera.position.y = player.y + player.eyeHeight; // player.y is feet level
+        this.camera.position.y = player.y + player.eyeHeight;
         this.camera.position.z = player.z;
 
-        // Apply rotation (Euler order YXZ is standard for FPS cameras)
         this.camera.rotation.order = 'YXZ';
         this.camera.rotation.y = player.yaw;
         this.camera.rotation.x = player.pitch;
@@ -86,10 +136,27 @@ class Engine {
         // Update Enemies
         for(let enemy of enemies) {
             if (!this.enemyMeshes[enemy.id]) {
-                const geo = new THREE.CylinderGeometry(0.5, 0.5, 2, 8);
-                const mat = new THREE.MeshLambertMaterial({ color: enemy.type === 'tank' ? 0xff00ff : 0x00ffff });
-                const mesh = new THREE.Mesh(geo, mat);
-                this.scene.add(mesh);
+                const group = new THREE.Group();
+                this.scene.add(group);
+                
+                if (enemy.modelBase64 && window.THREE.GLTFLoader) {
+                    const loader = new THREE.GLTFLoader();
+                    loader.load(enemy.modelBase64, (gltf) => {
+                        let model = gltf.scene;
+                        // Scale it to roughly fit a 1x2x1 box
+                        const box = new THREE.Box3().setFromObject(model);
+                        const size = box.getSize(new THREE.Vector3());
+                        const scale = 2 / Math.max(size.x, size.y, size.z);
+                        model.scale.set(scale, scale, scale);
+                        model.position.y -= 1; // Center bottom
+                        group.add(model);
+                    });
+                } else {
+                    const geo = new THREE.CylinderGeometry(0.5, 0.5, 2, 8);
+                    const mat = new THREE.MeshLambertMaterial({ color: enemy.type === 'tank' ? 0xff00ff : 0x00ffff });
+                    const mesh = new THREE.Mesh(geo, mat);
+                    group.add(mesh);
+                }
                 
                 // Add text sprite for HP
                 const canvas = document.createElement('canvas');
@@ -99,19 +166,22 @@ class Engine {
                 const sprite = new THREE.Sprite(spriteMat);
                 sprite.position.y = 1.5;
                 sprite.scale.set(2, 1, 1);
-                mesh.add(sprite);
+                group.add(sprite);
                 
-                this.enemyMeshes[enemy.id] = { mesh, canvas, tex, sprite };
+                this.enemyMeshes[enemy.id] = { group, canvas, tex, sprite };
             }
             
             let obj = this.enemyMeshes[enemy.id];
             
             if (enemy.hp <= 0) {
-                obj.mesh.visible = false;
+                obj.group.visible = false;
                 continue;
             }
-            obj.mesh.visible = true;
-            obj.mesh.position.set(enemy.x, enemy.y + 1, enemy.z); // y+1 because height is 2
+            obj.group.visible = true;
+            obj.group.position.set(enemy.x, enemy.y + 1, enemy.z);
+            
+            // Billboard to face player
+            obj.group.lookAt(player.x, obj.group.position.y, player.z);
             
             // Update HP text
             let ctx = obj.canvas.getContext('2d');
