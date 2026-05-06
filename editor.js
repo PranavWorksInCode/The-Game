@@ -11,6 +11,72 @@ let playerStart = {
 let selectedObject = null;
 let currentTool = 'select'; // select, block, erase, player, mover, tank
 
+const AI_TEMPLATES = {
+    basic_chaser: `if (hasLOS) {
+    enemy.aiState = 'chase';
+    enemy.lastKnownX = player.x;
+    enemy.lastKnownZ = player.z;
+} else if (enemy.aiState === 'chase') {
+    enemy.aiState = 'search';
+}
+
+if (enemy.aiState === 'chase') {
+    if (enemy.type === 'mover' && dist > 2) {
+        enemy.x += (dx / dist) * moveSpeed * dt;
+        enemy.z += (dz / dist) * moveSpeed * dt;
+    }
+    if (now > enemy.nextShoot) {
+        enemy.nextShoot = now + 1.5 * (1 / timeDilationFactor);
+        projectiles.push({
+            x: enemy.x, y: enemy.y + 1, z: enemy.z,
+            vx: (dx / dist) * 15, vy: (edy / dist) * 15, vz: (dz / dist) * 15,
+            active: true, owner: 'enemy'
+        });
+    }
+} else if (enemy.aiState === 'search') {
+    if (enemy.type === 'mover') {
+        let ldx = enemy.lastKnownX - enemy.x;
+        let ldz = enemy.lastKnownZ - enemy.z;
+        let ldist = Math.sqrt(ldx*ldx + ldz*ldz);
+        if (ldist > 0.5) {
+            enemy.x += (ldx / ldist) * moveSpeed * dt;
+            enemy.z += (ldz / ldist) * moveSpeed * dt;
+        } else {
+            enemy.aiState = 'idle';
+        }
+    }
+}`,
+    basic_patrol: `if (hasLOS) {
+    enemy.aiState = 'chase';
+    enemy.lastKnownX = player.x;
+    enemy.lastKnownZ = player.z;
+}
+
+if (enemy.aiState === 'chase') {
+    if (enemy.type === 'mover' && dist > 2) {
+        enemy.x += (dx / dist) * moveSpeed * dt;
+        enemy.z += (dz / dist) * moveSpeed * dt;
+    }
+    if (now > enemy.nextShoot) {
+        enemy.nextShoot = now + 1.5 * (1 / timeDilationFactor);
+        projectiles.push({
+            x: enemy.x, y: enemy.y + 1, z: enemy.z,
+            vx: (dx / dist) * 15, vy: (edy / dist) * 15, vz: (dz / dist) * 15,
+            active: true, owner: 'enemy'
+        });
+    }
+    if (!hasLOS) enemy.aiState = 'patrol';
+} else {
+    enemy.aiState = 'patrol';
+    if (enemy.type === 'mover') {
+        enemy.x += enemy.patrolDir * moveSpeed * dt;
+        if (Math.abs(enemy.x - enemy.spawnX) > 5) {
+            enemy.patrolDir *= -1;
+        }
+    }
+}`
+};
+
 // UI Elements
 const outlinerList = document.getElementById('outliner-list');
 const propertiesPanel = document.getElementById('properties-panel');
@@ -105,8 +171,17 @@ function selectObject(obj) {
         document.getElementById('prop-enemy-speed').value = obj.speed;
         
         document.getElementById('prop-enemy-ai').value = obj.aiType || 'basic_chaser';
-        document.getElementById('prop-enemy-script').value = obj.customAIScript || '';
-        document.getElementById('prop-enemy-script-group').style.display = (obj.aiType === 'custom') ? 'block' : 'none';
+        
+        let scriptBox = document.getElementById('prop-enemy-script');
+        if (obj.aiType === 'custom') {
+            scriptBox.value = obj.customAIScript || '';
+            scriptBox.readOnly = false;
+            scriptBox.style.color = '#0f0';
+        } else {
+            scriptBox.value = AI_TEMPLATES[obj.aiType || 'basic_chaser'];
+            scriptBox.readOnly = true;
+            scriptBox.style.color = '#888';
+        }
     } else if (obj.type === 'player') {
         document.getElementById('prop-player').style.display = 'block';
         document.getElementById('prop-player-hp').value = obj.hp;
@@ -163,10 +238,25 @@ bindInput('prop-enemy-hp', 'hp', true);
 bindInput('prop-enemy-dmg', 'damage', true);
 bindInput('prop-enemy-speed', 'speed', true);
 bindInput('prop-enemy-ai', 'aiType');
-bindInput('prop-enemy-script', 'customAIScript');
+
+// Custom input binding for script so it only saves if custom
+document.getElementById('prop-enemy-script').addEventListener('input', (e) => {
+    if (!selectedObject || selectedObject.type === 'player' || selectedObject.aiType !== 'custom') return;
+    selectedObject.customAIScript = e.target.value;
+});
 
 document.getElementById('prop-enemy-ai').addEventListener('change', (e) => {
-    document.getElementById('prop-enemy-script-group').style.display = (e.target.value === 'custom') ? 'block' : 'none';
+    if (!selectedObject) return;
+    let scriptBox = document.getElementById('prop-enemy-script');
+    if (e.target.value === 'custom') {
+        scriptBox.value = selectedObject.customAIScript || '';
+        scriptBox.readOnly = false;
+        scriptBox.style.color = '#0f0';
+    } else {
+        scriptBox.value = AI_TEMPLATES[e.target.value];
+        scriptBox.readOnly = true;
+        scriptBox.style.color = '#888';
+    }
 });
 
 bindInput('prop-player-hp', 'hp', true);
