@@ -54,7 +54,8 @@ function updateOutliner() {
     objects.forEach(obj => {
         let div = document.createElement('div');
         div.className = 'outliner-item' + (selectedObject === obj ? ' selected' : '');
-        div.innerText = `${obj.type} [${obj.id}]`;
+        let displayName = obj.name || obj.type;
+        div.innerText = `${displayName} [${obj.id}]`;
         div.addEventListener('click', () => selectObject(obj));
         outlinerList.appendChild(div);
     });
@@ -71,12 +72,14 @@ function selectObject(obj) {
     }
     
     propertiesPanel.style.display = 'block';
-    document.getElementById('prop-title').innerText = obj.type.toUpperCase();
+    document.getElementById('prop-title').innerText = (obj.name || obj.type).toUpperCase();
     
-    // Transform
+    // Transform & Name
+    document.getElementById('prop-name-group').style.display = obj.type === 'player' ? 'none' : 'block';
     document.getElementById('prop-transform').style.display = obj.type === 'player' ? 'none' : 'block';
     document.getElementById('btn-delete-obj').style.display = obj.type === 'player' ? 'none' : 'block';
     if (obj.type !== 'player') {
+        document.getElementById('prop-name').value = obj.name || '';
         document.getElementById('prop-x').value = obj.x;
         document.getElementById('prop-z').value = obj.z;
         document.getElementById('prop-w').value = obj.w || 2;
@@ -129,6 +132,13 @@ function bindInput(id, field, isNum = false) {
     });
 }
 
+document.getElementById('prop-name').addEventListener('input', (e) => {
+    if (!selectedObject || selectedObject.type === 'player') return;
+    selectedObject.name = e.target.value;
+    document.getElementById('prop-title').innerText = (selectedObject.name || selectedObject.type).toUpperCase();
+    updateOutliner();
+});
+
 bindInput('prop-x', 'x', true);
 bindInput('prop-z', 'z', true);
 bindInput('prop-w', 'w', true);
@@ -156,8 +166,10 @@ bindInput('prop-player-jump', 'jumpVelocity', true);
 document.querySelectorAll('.prop-wpn').forEach(cb => {
     cb.addEventListener('change', (e) => {
         if (!selectedObject || selectedObject.type !== 'player') return;
-        if (e.target.checked && !selectedObject.weapons.includes(e.target.value)) {
-            selectedObject.weapons.push(e.target.value);
+        if (e.target.checked) {
+            if (!selectedObject.weapons.includes(e.target.value)) {
+                selectedObject.weapons.push(e.target.value);
+            }
         } else {
             selectedObject.weapons = selectedObject.weapons.filter(w => w !== e.target.value);
         }
@@ -167,8 +179,10 @@ document.querySelectorAll('.prop-wpn').forEach(cb => {
 document.querySelectorAll('.prop-pwr').forEach(cb => {
     cb.addEventListener('change', (e) => {
         if (!selectedObject || selectedObject.type !== 'player') return;
-        if (e.target.checked && !selectedObject.powers.includes(e.target.value)) {
-            selectedObject.powers.push(e.target.value);
+        if (e.target.checked) {
+            if (!selectedObject.powers.includes(e.target.value)) {
+                selectedObject.powers.push(e.target.value);
+            }
         } else {
             selectedObject.powers = selectedObject.powers.filter(w => w !== e.target.value);
         }
