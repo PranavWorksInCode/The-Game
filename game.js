@@ -65,6 +65,23 @@ if (savedMapStr) {
             player.x = savedData.playerStart.x;
             player.z = savedData.playerStart.z;
             player.y = 0;
+            if (savedData.playerStart.hp) {
+                player.health = savedData.playerStart.hp;
+                player.maxHealth = savedData.playerStart.hp;
+            }
+            if (savedData.playerStart.speed) player.moveSpeed = savedData.playerStart.speed;
+            if (savedData.playerStart.jumpVelocity) player.jumpVelocity = savedData.playerStart.jumpVelocity;
+            
+            if (savedData.playerStart.weapons && savedData.playerStart.weapons.length > 0) {
+                weapons = allWeapons.filter(w => w.name === 'Fists' || savedData.playerStart.weapons.includes(w.name));
+            }
+            
+            if (savedData.playerStart.powers) {
+                powerups.rewind.unlocked = savedData.playerStart.powers.includes('rewind');
+                powerups.timeDilation.unlocked = savedData.playerStart.powers.includes('timeDilation');
+                powerups.healthUp.unlocked = savedData.playerStart.powers.includes('healthUp');
+                powerups.doubleDamage.unlocked = false; // Add it manually if we had a checkbox for it
+            }
         }
         console.log("Loaded custom map V3!");
     } catch(e) {
@@ -75,7 +92,7 @@ if (savedMapStr) {
 let projectiles = [];
 
 // Weapons Data
-const weapons = [
+const allWeapons = [
     { name: 'Fists', damage: 5, ammo: Infinity, maxAmmo: Infinity, magSize: Infinity, currentMag: Infinity, dropOff: false, fireRate: 0.4 },
     { name: 'Pistol', damage: 25, ammo: 60, maxAmmo: 60, magSize: 10, currentMag: 10, dropOff: false, fireRate: 0.3 },
     { name: 'Shotgun', damage: 40, ammo: 30, maxAmmo: 30, magSize: 5, currentMag: 5, dropOff: true, fireRate: 0.8 },
@@ -83,12 +100,15 @@ const weapons = [
     { name: 'Machine Gun', damage: 35, ammo: 300, maxAmmo: 300, magSize: 150, currentMag: 150, dropOff: false, fireRate: 0.05 },
     { name: 'Rocket Launcher', damage: 150, ammo: 5, maxAmmo: 5, magSize: 1, currentMag: 1, dropOff: false, fireRate: 1.5 }
 ];
-let currentWeaponIndex = 1; // Start with Pistol
+let weapons = [...allWeapons];
+let currentWeaponIndex = 0; // Default index
+
 let lastShootTime = 0; // Cooldown tracker
 
 // Powerups System
 const powerups = {
     rewind: {
+        unlocked: true,
         history: [],
         maxFrames: 600, // 10 seconds at 60 FPS
         cooldown: 150,
@@ -96,6 +116,7 @@ const powerups = {
         isRewinding: false
     },
     timeDilation: {
+        unlocked: true,
         active: false,
         duration: 10,
         cooldown: 90,
@@ -103,6 +124,7 @@ const powerups = {
         timer: 0
     },
     doubleDamage: {
+        unlocked: true,
         active: false,
         duration: 10,
         cooldown: 60,
@@ -110,6 +132,7 @@ const powerups = {
         timer: 0
     },
     healthUp: {
+        unlocked: true,
         active: false,
         duration: 15,
         cooldown: 90,
@@ -405,7 +428,7 @@ function gameLoop(time) {
     lastTime = now;
 
     // --- REWIND LOGIC ---
-    if (keys.q && now - powerups.rewind.lastUsed >= powerups.rewind.cooldown) {
+    if (powerups.rewind.unlocked && keys.q && now - powerups.rewind.lastUsed >= powerups.rewind.cooldown) {
         powerups.rewind.isRewinding = true;
     } else if (!keys.q && powerups.rewind.isRewinding) {
         powerups.rewind.isRewinding = false;
@@ -434,19 +457,21 @@ function gameLoop(time) {
     } else {
         // --- NORMAL GAMEPLAY LOGIC ---
         // Save current state to history
-        powerups.rewind.history.push({
-            x: player.x, y: player.y, z: player.z,
-            yaw: player.yaw, pitch: player.pitch, yVelocity: player.yVelocity
-        });
-        if (powerups.rewind.history.length > powerups.rewind.maxFrames) {
-            powerups.rewind.history.shift();
+        if (powerups.rewind.unlocked) {
+            powerups.rewind.history.push({
+                x: player.x, y: player.y, z: player.z,
+                yaw: player.yaw, pitch: player.pitch, yVelocity: player.yVelocity
+            });
+            if (powerups.rewind.history.length > powerups.rewind.maxFrames) {
+                powerups.rewind.history.shift();
+            }
         }
 
         // --- POWERUPS LOGIC & TIMERS ---
         let timeDilationFactor = 1.0;
         
         // Time Dilation
-        if (keys.e && now - powerups.timeDilation.lastUsed >= powerups.timeDilation.cooldown) {
+        if (powerups.timeDilation.unlocked && keys.e && now - powerups.timeDilation.lastUsed >= powerups.timeDilation.cooldown) {
             powerups.timeDilation.active = true;
             powerups.timeDilation.lastUsed = now;
             powerups.timeDilation.timer = powerups.timeDilation.duration;
@@ -458,7 +483,7 @@ function gameLoop(time) {
         }
 
         // Double Damage
-        if (keys.z && now - powerups.doubleDamage.lastUsed >= powerups.doubleDamage.cooldown) {
+        if (powerups.doubleDamage.unlocked && keys.z && now - powerups.doubleDamage.lastUsed >= powerups.doubleDamage.cooldown) {
             powerups.doubleDamage.active = true;
             powerups.doubleDamage.lastUsed = now;
             powerups.doubleDamage.timer = powerups.doubleDamage.duration;
@@ -469,7 +494,7 @@ function gameLoop(time) {
         }
 
         // Health Up
-        if (keys.x && now - powerups.healthUp.lastUsed >= powerups.healthUp.cooldown) {
+        if (powerups.healthUp.unlocked && keys.x && now - powerups.healthUp.lastUsed >= powerups.healthUp.cooldown) {
             powerups.healthUp.active = true;
             powerups.healthUp.lastUsed = now;
             powerups.healthUp.timer = powerups.healthUp.duration;

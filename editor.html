@@ -89,6 +89,23 @@
                 <button id="btn-clear-model" style="font-size: 10px;">Clear Model</button>
             </div>
             
+            <div class="prop-group" id="prop-player" style="display:none;">
+                <label>Max HP: <input type="number" id="prop-player-hp"></label>
+                <label>Move Speed: <input type="number" id="prop-player-speed" step="0.5"></label>
+                <label>Jump Velocity: <input type="number" id="prop-player-jump" step="0.5"></label>
+                <div style="margin-top: 10px; font-weight: bold; color: #aaa;">Starting Weapons:</div>
+                <label><input type="checkbox" id="prop-wpn-pistol" class="prop-wpn" value="Pistol"> Pistol</label>
+                <label><input type="checkbox" id="prop-wpn-shotgun" class="prop-wpn" value="Shotgun"> Shotgun</label>
+                <label><input type="checkbox" id="prop-wpn-ar" class="prop-wpn" value="Assault Rifle"> Assault Rifle</label>
+                <label><input type="checkbox" id="prop-wpn-mg" class="prop-wpn" value="Machine Gun"> Machine Gun</label>
+                <label><input type="checkbox" id="prop-wpn-rocket" class="prop-wpn" value="Rocket Launcher"> Rocket Launcher</label>
+                
+                <div style="margin-top: 10px; font-weight: bold; color: #aaa;">Starting Powers:</div>
+                <label><input type="checkbox" id="prop-pwr-rewind" class="prop-pwr" value="rewind"> Rewind</label>
+                <label><input type="checkbox" id="prop-pwr-time" class="prop-pwr" value="timeDilation"> Time Dilation</label>
+                <label><input type="checkbox" id="prop-pwr-health" class="prop-pwr" value="healthUp"> Health Reflect</label>
+            </div>
+            
             <button id="btn-delete-obj" style="background: #cc0000; margin-top: 15px;">Delete Object</button>
         </div>
     </div>

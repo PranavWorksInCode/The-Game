@@ -3,7 +3,11 @@ const ctx = canvas.getContext('2d');
 
 // Editor State (Flattened)
 let objects = [];
-let playerStart = { x: 0, z: 5 };
+let playerStart = { 
+    type: 'player', x: 0, z: 5, 
+    hp: 100, speed: 8.0, jumpVelocity: 14.0, 
+    weapons: ['Pistol'], powers: [] 
+};
 let selectedObject = null;
 let currentTool = 'select'; // select, block, erase, player, mover, tank
 
@@ -39,6 +43,14 @@ function worldToScreen(x, z) {
 // Outliner & Selection
 function updateOutliner() {
     outlinerList.innerHTML = '';
+    
+    let pdiv = document.createElement('div');
+    pdiv.className = 'outliner-item' + (selectedObject === playerStart ? ' selected' : '');
+    pdiv.innerText = `Player Spawn`;
+    pdiv.style.color = '#0f0';
+    pdiv.addEventListener('click', () => selectObject(playerStart));
+    outlinerList.appendChild(pdiv);
+    
     objects.forEach(obj => {
         let div = document.createElement('div');
         div.className = 'outliner-item' + (selectedObject === obj ? ' selected' : '');
@@ -71,6 +83,7 @@ function selectObject(obj) {
     // Type specific
     document.getElementById('prop-block').style.display = 'none';
     document.getElementById('prop-enemy').style.display = 'none';
+    document.getElementById('prop-player').style.display = 'none';
     
     if (obj.type === 'block') {
         document.getElementById('prop-block').style.display = 'block';
@@ -83,6 +96,18 @@ function selectObject(obj) {
         document.getElementById('prop-enemy-hp').value = obj.hp;
         document.getElementById('prop-enemy-dmg').value = obj.damage;
         document.getElementById('prop-enemy-speed').value = obj.speed;
+    } else if (obj.type === 'player') {
+        document.getElementById('prop-player').style.display = 'block';
+        document.getElementById('prop-player-hp').value = obj.hp;
+        document.getElementById('prop-player-speed').value = obj.speed;
+        document.getElementById('prop-player-jump').value = obj.jumpVelocity;
+        
+        document.querySelectorAll('.prop-wpn').forEach(cb => {
+            cb.checked = obj.weapons.includes(cb.value);
+        });
+        document.querySelectorAll('.prop-pwr').forEach(cb => {
+            cb.checked = obj.powers.includes(cb.value);
+        });
     }
     
     drawCanvas();
@@ -119,6 +144,32 @@ document.getElementById('prop-breakable').addEventListener('input', (e) => {
 bindInput('prop-enemy-hp', 'hp', true);
 bindInput('prop-enemy-dmg', 'damage', true);
 bindInput('prop-enemy-speed', 'speed', true);
+
+bindInput('prop-player-hp', 'hp', true);
+bindInput('prop-player-speed', 'speed', true);
+bindInput('prop-player-jump', 'jumpVelocity', true);
+
+document.querySelectorAll('.prop-wpn').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+        if (!selectedObject || selectedObject.type !== 'player') return;
+        if (e.target.checked && !selectedObject.weapons.includes(e.target.value)) {
+            selectedObject.weapons.push(e.target.value);
+        } else {
+            selectedObject.weapons = selectedObject.weapons.filter(w => w !== e.target.value);
+        }
+    });
+});
+
+document.querySelectorAll('.prop-pwr').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+        if (!selectedObject || selectedObject.type !== 'player') return;
+        if (e.target.checked && !selectedObject.powers.includes(e.target.value)) {
+            selectedObject.powers.push(e.target.value);
+        } else {
+            selectedObject.powers = selectedObject.powers.filter(w => w !== e.target.value);
+        }
+    });
+});
 
 document.getElementById('btn-delete-obj').addEventListener('click', () => {
     if (!selectedObject) return;
