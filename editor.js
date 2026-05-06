@@ -393,7 +393,15 @@ if (existing) {
     try {
         let parsed = JSON.parse(existing);
         objects = parsed.objects || [];
-        playerStart = parsed.playerStart || { x: 0, z: 5 };
+        if (parsed.playerStart) {
+            playerStart = { ...playerStart, ...parsed.playerStart };
+            playerStart.type = 'player'; // Ensure type is present for older saves
+            if (!playerStart.weapons) playerStart.weapons = ['Pistol'];
+            if (!playerStart.powers) playerStart.powers = [];
+            if (!playerStart.hp) playerStart.hp = 100;
+            if (!playerStart.speed) playerStart.speed = 8.0;
+            if (!playerStart.jumpVelocity) playerStart.jumpVelocity = 14.0;
+        }
     } catch(e) {}
 }
 
