@@ -363,16 +363,32 @@ function drawCanvas(dragPos = null) {
 }
 
 // Save & Load
-document.getElementById('btn-save-play').addEventListener('click', () => {
+function saveMapData() {
     let finalSave = {
         objects: objects,
         playerStart: playerStart
     };
     try {
         localStorage.setItem('customMapV3', JSON.stringify(finalSave));
-        window.location.href = 'index.html';
+        return true;
     } catch(e) {
         alert("Failed to save map! If you uploaded very large 3D models, they might exceed localStorage quota.");
+        return false;
+    }
+}
+
+document.getElementById('btn-save').addEventListener('click', () => {
+    if(saveMapData()) {
+        let btn = document.getElementById('btn-save');
+        let oldText = btn.innerText;
+        btn.innerText = "Saved!";
+        setTimeout(() => btn.innerText = oldText, 1500);
+    }
+});
+
+document.getElementById('btn-save-play').addEventListener('click', () => {
+    if(saveMapData()) {
+        window.location.href = 'index.html';
     }
 });
 

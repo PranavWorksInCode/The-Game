@@ -31,7 +31,10 @@
 <body>
     <div id="left-panel" class="panel">
         <h2 style="margin: 0;">Level Editor</h2>
-        <button id="btn-save-play" style="background: #00cc66; font-size: 1.1em; font-weight: bold;">Save & Play</button>
+        <div style="display: flex; gap: 5px;">
+            <button id="btn-save" style="background: #0088ff; font-weight: bold; flex-grow: 1;">Save</button>
+            <button id="btn-save-play" style="background: #00cc66; font-weight: bold; flex-grow: 1;">Save & Play</button>
+        </div>
         <button id="btn-back">Back to Game</button>
         
         <div class="section-title">Tools</div>
@@ -104,6 +107,7 @@
                 <label><input type="checkbox" id="prop-pwr-rewind" class="prop-pwr" value="rewind"> Rewind</label>
                 <label><input type="checkbox" id="prop-pwr-time" class="prop-pwr" value="timeDilation"> Time Dilation</label>
                 <label><input type="checkbox" id="prop-pwr-health" class="prop-pwr" value="healthUp"> Health Reflect</label>
+                <label><input type="checkbox" id="prop-pwr-dd" class="prop-pwr" value="doubleDamage"> Double Damage</label>
             </div>
             
             <button id="btn-delete-obj" style="background: #cc0000; margin-top: 15px;">Delete Object</button>

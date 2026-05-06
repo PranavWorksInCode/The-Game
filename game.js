@@ -80,7 +80,7 @@ if (savedMapStr) {
                 powerups.rewind.unlocked = savedData.playerStart.powers.includes('rewind');
                 powerups.timeDilation.unlocked = savedData.playerStart.powers.includes('timeDilation');
                 powerups.healthUp.unlocked = savedData.playerStart.powers.includes('healthUp');
-                powerups.doubleDamage.unlocked = false; // Add it manually if we had a checkbox for it
+                powerups.doubleDamage.unlocked = savedData.playerStart.powers.includes('doubleDamage');
             }
         }
         console.log("Loaded custom map V3!");
