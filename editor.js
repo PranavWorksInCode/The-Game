@@ -179,7 +179,17 @@ canvas.addEventListener('mousedown', (e) => {
         }
         selectObject(clicked);
     } else if (currentTool === 'block') {
-        dragStart = wPos;
+        let obj = {
+            id: generateId(),
+            type: 'block',
+            x: wPos.x, z: wPos.z, w: 2, d: 2, h: 5, // Doom style walls are tall
+            color: '#888888',
+            breakable: false,
+            hp: 100,
+            textureBase64: null
+        };
+        objects.push(obj);
+        selectObject(obj);
     } else if (currentTool === 'player') {
         playerStart = { x: wPos.x, z: wPos.z };
         drawCanvas();
@@ -199,49 +209,11 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 canvas.addEventListener('mousemove', (e) => {
-    if (!isMouseDown) return;
-    if (currentTool === 'block') {
-        const rect = canvas.getBoundingClientRect();
-        let wPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-        wPos.x = Math.round(wPos.x / 2) * 2;
-        wPos.z = Math.round(wPos.z / 2) * 2;
-        drawCanvas(wPos); // Pass current drag pos
-    }
+    // No longer need drag preview for blocks
 });
 
 canvas.addEventListener('mouseup', (e) => {
-    if (isMouseDown && currentTool === 'block' && dragStart) {
-        const rect = canvas.getBoundingClientRect();
-        let wPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-        wPos.x = Math.round(wPos.x / 2) * 2;
-        wPos.z = Math.round(wPos.z / 2) * 2;
-        
-        let minX = Math.min(dragStart.x, wPos.x);
-        let maxX = Math.max(dragStart.x, wPos.x);
-        let minZ = Math.min(dragStart.z, wPos.z);
-        let maxZ = Math.max(dragStart.z, wPos.z);
-        
-        let w = (maxX - minX) + 2;
-        let d = (maxZ - minZ) + 2;
-        let x = minX + (maxX - minX)/2;
-        let z = minZ + (maxZ - minZ)/2;
-        
-        let obj = {
-            id: generateId(),
-            type: 'block',
-            x, z, w, d, h: 5, // Doom style walls are tall
-            color: '#888888',
-            breakable: false,
-            hp: 100,
-            textureBase64: null
-        };
-        
-        objects.push(obj);
-        selectObject(obj);
-    }
     isMouseDown = false;
-    dragStart = null;
-    drawCanvas();
 });
 
 
@@ -277,24 +249,7 @@ function drawCanvas(dragPos = null) {
         }
     });
     
-    // Draw drag preview
-    if (dragStart && dragPos) {
-        let minX = Math.min(dragStart.x, dragPos.x);
-        let maxX = Math.max(dragStart.x, dragPos.x);
-        let minZ = Math.min(dragStart.z, dragPos.z);
-        let maxZ = Math.max(dragStart.z, dragPos.z);
-        let w = (maxX - minX) + 2;
-        let d = (maxZ - minZ) + 2;
-        let x = minX + (maxX - minX)/2;
-        let z = minZ + (maxZ - minZ)/2;
-        
-        let sc = worldToScreen(x, z);
-        let sw = (w / 2) * CELL_SIZE;
-        let sd = (d / 2) * CELL_SIZE;
-        
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.fillRect(sc.cx - sw, sc.cy - sd, sw*2, sd*2);
-    }
+    // Draw drag preview removed as blocks are single-click now
     
     // Draw Player
     let psc = worldToScreen(playerStart.x, playerStart.z);
