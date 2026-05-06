@@ -74,11 +74,14 @@ function selectObject(obj) {
     document.getElementById('prop-title').innerText = obj.type.toUpperCase();
     
     // Transform
-    document.getElementById('prop-x').value = obj.x;
-    document.getElementById('prop-z').value = obj.z;
-    document.getElementById('prop-w').value = obj.w || 2;
-    document.getElementById('prop-d').value = obj.d || 2;
-    document.getElementById('prop-h').value = obj.h || 5; // Default classic height is usually taller
+    document.getElementById('prop-transform').style.display = obj.type === 'player' ? 'none' : 'block';
+    if (obj.type !== 'player') {
+        document.getElementById('prop-x').value = obj.x;
+        document.getElementById('prop-z').value = obj.z;
+        document.getElementById('prop-w').value = obj.w || 2;
+        document.getElementById('prop-d').value = obj.d || 2;
+        document.getElementById('prop-h').value = obj.h || 5;
+    }
     
     // Type specific
     document.getElementById('prop-block').style.display = 'none';
