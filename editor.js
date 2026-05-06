@@ -176,15 +176,30 @@ canvas.addEventListener('mousedown', (e) => {
     
     if (currentTool === 'select') {
         let clicked = null;
-        for(let i = objects.length - 1; i >= 0; i--) {
-            let o = objects[i];
-            if (wPos.x >= o.x - o.w/2 && wPos.x <= o.x + o.w/2 &&
-                wPos.z >= o.z - o.d/2 && wPos.z <= o.z + o.d/2) {
-                clicked = o;
-                break;
+        let isPlayer = false;
+        
+        if (Math.abs(wPos.x - playerStart.x) <= 1 && Math.abs(wPos.z - playerStart.z) <= 1) {
+            isPlayer = true;
+        } else {
+            for(let i = objects.length - 1; i >= 0; i--) {
+                let o = objects[i];
+                if (wPos.x >= o.x - o.w/2 && wPos.x <= o.x + o.w/2 &&
+                    wPos.z >= o.z - o.d/2 && wPos.z <= o.z + o.d/2) {
+                    clicked = o;
+                    break;
+                }
             }
         }
-        selectObject(clicked);
+        
+        if (isPlayer) {
+            selectObject(null);
+            dragStart = { type: 'player' };
+        } else {
+            selectObject(clicked);
+            if (clicked) {
+                dragStart = { type: 'object', obj: clicked };
+            }
+        }
     } else if (currentTool === 'block') {
         let obj = {
             id: generateId(),
@@ -216,11 +231,33 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 canvas.addEventListener('mousemove', (e) => {
-    // No longer need drag preview for blocks
+    if (!isMouseDown) return;
+    
+    if (currentTool === 'select' && dragStart) {
+        const rect = canvas.getBoundingClientRect();
+        let wPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+        wPos.x = Math.round(wPos.x / 2) * 2;
+        wPos.z = Math.round(wPos.z / 2) * 2;
+        
+        if (dragStart.type === 'player') {
+            playerStart.x = wPos.x;
+            playerStart.z = wPos.z;
+        } else if (dragStart.type === 'object') {
+            dragStart.obj.x = wPos.x;
+            dragStart.obj.z = wPos.z;
+            
+            if (selectedObject === dragStart.obj) {
+                document.getElementById('prop-x').value = wPos.x;
+                document.getElementById('prop-z').value = wPos.z;
+            }
+        }
+        drawCanvas();
+    }
 });
 
 canvas.addEventListener('mouseup', (e) => {
     isMouseDown = false;
+    dragStart = null;
 });
 
 
