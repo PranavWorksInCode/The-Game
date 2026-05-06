@@ -38,6 +38,57 @@ const player = {
     maxHealth: 100
 };
 
+// Weapons Data
+const allWeapons = [
+    { name: 'Fists', damage: 5, ammo: Infinity, maxAmmo: Infinity, magSize: Infinity, currentMag: Infinity, dropOff: false, fireRate: 0.4 },
+    { name: 'Pistol', damage: 25, ammo: 60, maxAmmo: 60, magSize: 10, currentMag: 10, dropOff: false, fireRate: 0.3 },
+    { name: 'Shotgun', damage: 40, ammo: 30, maxAmmo: 30, magSize: 5, currentMag: 5, dropOff: true, fireRate: 0.8 },
+    { name: 'Assault Rifle', damage: 30, ammo: 120, maxAmmo: 120, magSize: 30, currentMag: 30, dropOff: false, fireRate: 0.1 },
+    { name: 'Machine Gun', damage: 35, ammo: 300, maxAmmo: 300, magSize: 150, currentMag: 150, dropOff: false, fireRate: 0.05 },
+    { name: 'Rocket Launcher', damage: 150, ammo: 5, maxAmmo: 5, magSize: 1, currentMag: 1, dropOff: false, fireRate: 1.5 }
+];
+let weapons = [...allWeapons];
+let currentWeaponIndex = 0; // Default index
+
+let lastShootTime = 0; // Cooldown tracker
+
+// Powerups System
+const powerups = {
+    rewind: {
+        unlocked: true,
+        history: [],
+        maxFrames: 600, // 10 seconds at 60 FPS
+        cooldown: 150,
+        lastUsed: -Infinity,
+        isRewinding: false
+    },
+    timeDilation: {
+        unlocked: true,
+        active: false,
+        duration: 10,
+        cooldown: 90,
+        lastUsed: -Infinity,
+        timer: 0
+    },
+    doubleDamage: {
+        unlocked: true,
+        active: false,
+        duration: 10,
+        cooldown: 60,
+        lastUsed: -Infinity,
+        timer: 0
+    },
+    healthUp: {
+        unlocked: true,
+        active: false,
+        duration: 15,
+        cooldown: 90,
+        lastUsed: -Infinity,
+        timer: 0,
+        damageTakenDuring: 0
+    }
+};
+
 // Enemies
 let enemies = [
     { id: 1, x: -5, y: 0, z: -8, hp: 150, maxHp: 150, type: 'mover', speed: 4.0, nextShoot: 0 },
@@ -90,58 +141,6 @@ if (savedMapStr) {
 }
 
 let projectiles = [];
-
-// Weapons Data
-const allWeapons = [
-    { name: 'Fists', damage: 5, ammo: Infinity, maxAmmo: Infinity, magSize: Infinity, currentMag: Infinity, dropOff: false, fireRate: 0.4 },
-    { name: 'Pistol', damage: 25, ammo: 60, maxAmmo: 60, magSize: 10, currentMag: 10, dropOff: false, fireRate: 0.3 },
-    { name: 'Shotgun', damage: 40, ammo: 30, maxAmmo: 30, magSize: 5, currentMag: 5, dropOff: true, fireRate: 0.8 },
-    { name: 'Assault Rifle', damage: 30, ammo: 120, maxAmmo: 120, magSize: 30, currentMag: 30, dropOff: false, fireRate: 0.1 },
-    { name: 'Machine Gun', damage: 35, ammo: 300, maxAmmo: 300, magSize: 150, currentMag: 150, dropOff: false, fireRate: 0.05 },
-    { name: 'Rocket Launcher', damage: 150, ammo: 5, maxAmmo: 5, magSize: 1, currentMag: 1, dropOff: false, fireRate: 1.5 }
-];
-let weapons = [...allWeapons];
-let currentWeaponIndex = 0; // Default index
-
-let lastShootTime = 0; // Cooldown tracker
-
-// Powerups System
-const powerups = {
-    rewind: {
-        unlocked: true,
-        history: [],
-        maxFrames: 600, // 10 seconds at 60 FPS
-        cooldown: 150,
-        lastUsed: -Infinity,
-        isRewinding: false
-    },
-    timeDilation: {
-        unlocked: true,
-        active: false,
-        duration: 10,
-        cooldown: 90,
-        lastUsed: -Infinity,
-        timer: 0
-    },
-    doubleDamage: {
-        unlocked: true,
-        active: false,
-        duration: 10,
-        cooldown: 60,
-        lastUsed: -Infinity,
-        timer: 0
-    },
-    healthUp: {
-        unlocked: true,
-        active: false,
-        duration: 15,
-        cooldown: 90,
-        lastUsed: -Infinity,
-        timer: 0,
-        damageTakenDuring: 0
-    }
-};
-
 // UI Elements
 const healthBar = document.getElementById('health-bar');
 const weaponInfo = document.getElementById('weapon-info');
@@ -160,24 +159,32 @@ function updateHUD(timeNow) {
     let lines = [];
     
     // Rewind [Q]
-    let cdRw = Math.max(0, powerups.rewind.cooldown - (timeNow - powerups.rewind.lastUsed));
-    if (powerups.rewind.isRewinding) lines.push("<span style='color:#f0f'>[Q] REWINDING</span>");
-    else lines.push(cdRw > 0 ? `<span style='color:#888'>[Q] Rewind CD: ${Math.ceil(cdRw)}s</span>` : "<span style='color:#0ff'>[Q] Rewind READY</span>");
+    if (powerups.rewind.unlocked) {
+        let cdRw = Math.max(0, powerups.rewind.cooldown - (timeNow - powerups.rewind.lastUsed));
+        if (powerups.rewind.isRewinding) lines.push("<span style='color:#f0f'>[Q] REWINDING</span>");
+        else lines.push(cdRw > 0 ? `<span style='color:#888'>[Q] Rewind CD: ${Math.ceil(cdRw)}s</span>` : "<span style='color:#0ff'>[Q] Rewind READY</span>");
+    }
 
     // Time Dilation [E]
-    let cdTd = Math.max(0, powerups.timeDilation.cooldown - (timeNow - powerups.timeDilation.lastUsed));
-    if (powerups.timeDilation.active) lines.push(`<span style='color:#ff0'>[E] TIME SLOW: ${Math.ceil(powerups.timeDilation.timer)}s</span>`);
-    else lines.push(cdTd > 0 ? `<span style='color:#888'>[E] Slow CD: ${Math.ceil(cdTd)}s</span>` : "<span style='color:#0ff'>[E] Slow READY</span>");
+    if (powerups.timeDilation.unlocked) {
+        let cdTd = Math.max(0, powerups.timeDilation.cooldown - (timeNow - powerups.timeDilation.lastUsed));
+        if (powerups.timeDilation.active) lines.push(`<span style='color:#ff0'>[E] TIME SLOW: ${Math.ceil(powerups.timeDilation.timer)}s</span>`);
+        else lines.push(cdTd > 0 ? `<span style='color:#888'>[E] Slow CD: ${Math.ceil(cdTd)}s</span>` : "<span style='color:#0ff'>[E] Slow READY</span>");
+    }
 
     // Double Damage [Z]
-    let cdDd = Math.max(0, powerups.doubleDamage.cooldown - (timeNow - powerups.doubleDamage.lastUsed));
-    if (powerups.doubleDamage.active) lines.push(`<span style='color:#f00'>[Z] DOUBLE DMG: ${Math.ceil(powerups.doubleDamage.timer)}s</span>`);
-    else lines.push(cdDd > 0 ? `<span style='color:#888'>[Z] Dmg CD: ${Math.ceil(cdDd)}s</span>` : "<span style='color:#0ff'>[Z] Dmg READY</span>");
+    if (powerups.doubleDamage.unlocked) {
+        let cdDd = Math.max(0, powerups.doubleDamage.cooldown - (timeNow - powerups.doubleDamage.lastUsed));
+        if (powerups.doubleDamage.active) lines.push(`<span style='color:#f00'>[Z] DOUBLE DMG: ${Math.ceil(powerups.doubleDamage.timer)}s</span>`);
+        else lines.push(cdDd > 0 ? `<span style='color:#888'>[Z] Dmg CD: ${Math.ceil(cdDd)}s</span>` : "<span style='color:#0ff'>[Z] Dmg READY</span>");
+    }
 
     // Health Up [X]
-    let cdHu = Math.max(0, powerups.healthUp.cooldown - (timeNow - powerups.healthUp.lastUsed));
-    if (powerups.healthUp.active) lines.push(`<span style='color:#0f0'>[X] HEALTH UP: ${Math.ceil(powerups.healthUp.timer)}s</span>`);
-    else lines.push(cdHu > 0 ? `<span style='color:#888'>[X] Health CD: ${Math.ceil(cdHu)}s</span>` : "<span style='color:#0ff'>[X] Health READY</span>");
+    if (powerups.healthUp.unlocked) {
+        let cdHu = Math.max(0, powerups.healthUp.cooldown - (timeNow - powerups.healthUp.lastUsed));
+        if (powerups.healthUp.active) lines.push(`<span style='color:#0f0'>[X] HEALTH UP: ${Math.ceil(powerups.healthUp.timer)}s</span>`);
+        else lines.push(cdHu > 0 ? `<span style='color:#888'>[X] Health CD: ${Math.ceil(cdHu)}s</span>` : "<span style='color:#0ff'>[X] Health READY</span>");
+    }
 
     powerupInfo.innerHTML = lines.join('<br>');
 }
