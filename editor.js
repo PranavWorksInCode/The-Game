@@ -77,6 +77,7 @@ function selectObject(obj) {
         document.getElementById('prop-color').value = obj.color;
         document.getElementById('prop-breakable').checked = obj.breakable;
         document.getElementById('prop-hp').value = obj.hp;
+        document.getElementById('lbl-hp').style.display = obj.breakable ? 'block' : 'none';
     } else if (obj.type === 'mover' || obj.type === 'tank') {
         document.getElementById('prop-enemy').style.display = 'block';
         document.getElementById('prop-enemy-hp').value = obj.hp;
@@ -106,8 +107,14 @@ bindInput('prop-d', 'd', true);
 bindInput('prop-h', 'h', true);
 
 bindInput('prop-color', 'color');
-bindInput('prop-breakable', 'breakable');
 bindInput('prop-hp', 'hp', true);
+
+document.getElementById('prop-breakable').addEventListener('input', (e) => {
+    if (!selectedObject) return;
+    selectedObject.breakable = e.target.checked;
+    document.getElementById('lbl-hp').style.display = selectedObject.breakable ? 'block' : 'none';
+    drawCanvas();
+});
 
 bindInput('prop-enemy-hp', 'hp', true);
 bindInput('prop-enemy-dmg', 'damage', true);
