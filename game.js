@@ -567,58 +567,121 @@ function gameLoop(time) {
                 enemy.aiState = 'idle';
                 enemy.lastKnownX = enemy.x;
                 enemy.lastKnownZ = enemy.z;
+                enemy.spawnX = enemy.x;
+                enemy.spawnZ = enemy.z;
+                enemy.patrolDir = 1;
+                
+                if (enemy.aiType === 'custom' && enemy.customAIScript) {
+                    try {
+                        // Pass Math explicitly so it's guaranteed available in their scope
+                        enemy.customAIFunc = new Function('enemy', 'player', 'projectiles', 'dt', 'now', 'timeDilationFactor', 'Math', enemy.customAIScript);
+                    } catch(e) {
+                        console.error("Failed to compile custom AI script for enemy " + enemy.id, e);
+                        enemy.customAIFunc = null;
+                    }
+                }
             }
             
             let dx = player.x - enemy.x;
             let edy = (player.y + player.eyeHeight) - (enemy.y + 1);
             let dz = player.z - enemy.z;
             let dist = Math.sqrt(dx*dx + edy*edy + dz*dz);
-            
-            // Line of sight check
             let hasLOS = checkLineOfSight(enemy.x, enemy.y + 1.0, enemy.z, player.x, player.y + player.eyeHeight, player.z);
-            
-            if (hasLOS) {
-                enemy.aiState = 'chase';
-                enemy.lastKnownX = player.x;
-                enemy.lastKnownZ = player.z;
-            } else if (enemy.aiState === 'chase') {
-                enemy.aiState = 'search';
-            }
-            
             let moveSpeed = enemy.speed * timeDilationFactor;
-            
-            if (enemy.aiState === 'chase') {
-                // Move towards player
-                if (enemy.type === 'mover' && dist > 2) {
-                    enemy.x += (dx / dist) * moveSpeed * dt;
-                    enemy.z += (dz / dist) * moveSpeed * dt;
-                }
-                
-                // Shoot
-                if (now > enemy.nextShoot) {
-                    enemy.nextShoot = now + 1.5 * (1 / timeDilationFactor); // Shoot every 1.5s
-                    projectiles.push({
-                        x: enemy.x, y: enemy.y + 1, z: enemy.z,
-                        vx: (dx / dist) * 15, vy: (edy / dist) * 15, vz: (dz / dist) * 15,
-                        active: true, owner: 'enemy'
-                    });
-                }
-            } else if (enemy.aiState === 'search') {
-                // Move towards last known
-                if (enemy.type === 'mover') {
-                    let ldx = enemy.lastKnownX - enemy.x;
-                    let ldz = enemy.lastKnownZ - enemy.z;
-                    let ldist = Math.sqrt(ldx*ldx + ldz*ldz);
-                    
-                    if (ldist > 0.5) {
-                        enemy.x += (ldx / ldist) * moveSpeed * dt;
-                        enemy.z += (ldz / ldist) * moveSpeed * dt;
-                    } else {
-                        enemy.aiState = 'idle';
+            let aiType = enemy.aiType || 'basic_chaser';
+
+            switch (aiType) {
+                case 'custom':
+                    if (enemy.customAIFunc) {
+                        try {
+                            enemy.customAIFunc(enemy, player, projectiles, dt, now, timeDilationFactor, Math);
+                        } catch(e) {
+                            console.error("Runtime error in custom AI for enemy " + enemy.id, e);
+                            enemy.aiType = 'basic_chaser'; // Fallback on error to prevent infinite logs
+                        }
                     }
-                } else {
-                    enemy.aiState = 'idle';
-                }
+                    break;
+                    
+                case 'basic_patrol':
+                    if (hasLOS) {
+                        enemy.aiState = 'chase';
+                        enemy.lastKnownX = player.x;
+                        enemy.lastKnownZ = player.z;
+                    }
+                    
+                    if (enemy.aiState === 'chase') {
+                        // Move towards player
+                        if (enemy.type === 'mover' && dist > 2) {
+                            enemy.x += (dx / dist) * moveSpeed * dt;
+                            enemy.z += (dz / dist) * moveSpeed * dt;
+                        }
+                        // Shoot
+                        if (now > enemy.nextShoot) {
+                            enemy.nextShoot = now + 1.5 * (1 / timeDilationFactor);
+                            projectiles.push({
+                                x: enemy.x, y: enemy.y + 1, z: enemy.z,
+                                vx: (dx / dist) * 15, vy: (edy / dist) * 15, vz: (dz / dist) * 15,
+                                active: true, owner: 'enemy'
+                            });
+                        }
+                        if (!hasLOS) {
+                            enemy.aiState = 'patrol';
+                        }
+                    } else {
+                        enemy.aiState = 'patrol';
+                        if (enemy.type === 'mover') {
+                            enemy.x += enemy.patrolDir * moveSpeed * dt;
+                            if (Math.abs(enemy.x - enemy.spawnX) > 5) {
+                                enemy.patrolDir *= -1; // Reverse direction
+                            }
+                        }
+                    }
+                    break;
+                    
+                case 'basic_chaser':
+                default:
+                    if (hasLOS) {
+                        enemy.aiState = 'chase';
+                        enemy.lastKnownX = player.x;
+                        enemy.lastKnownZ = player.z;
+                    } else if (enemy.aiState === 'chase') {
+                        enemy.aiState = 'search';
+                    }
+                    
+                    if (enemy.aiState === 'chase') {
+                        // Move towards player
+                        if (enemy.type === 'mover' && dist > 2) {
+                            enemy.x += (dx / dist) * moveSpeed * dt;
+                            enemy.z += (dz / dist) * moveSpeed * dt;
+                        }
+                        
+                        // Shoot
+                        if (now > enemy.nextShoot) {
+                            enemy.nextShoot = now + 1.5 * (1 / timeDilationFactor);
+                            projectiles.push({
+                                x: enemy.x, y: enemy.y + 1, z: enemy.z,
+                                vx: (dx / dist) * 15, vy: (edy / dist) * 15, vz: (dz / dist) * 15,
+                                active: true, owner: 'enemy'
+                            });
+                        }
+                    } else if (enemy.aiState === 'search') {
+                        // Move towards last known
+                        if (enemy.type === 'mover') {
+                            let ldx = enemy.lastKnownX - enemy.x;
+                            let ldz = enemy.lastKnownZ - enemy.z;
+                            let ldist = Math.sqrt(ldx*ldx + ldz*ldz);
+                            
+                            if (ldist > 0.5) {
+                                enemy.x += (ldx / ldist) * moveSpeed * dt;
+                                enemy.z += (ldz / ldist) * moveSpeed * dt;
+                            } else {
+                                enemy.aiState = 'idle';
+                            }
+                        } else {
+                            enemy.aiState = 'idle';
+                        }
+                    }
+                    break;
             }
         }
         

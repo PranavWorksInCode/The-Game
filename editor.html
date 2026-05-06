@@ -92,6 +92,21 @@
                 <label>HP: <input type="number" id="prop-enemy-hp"></label>
                 <label>Damage: <input type="number" id="prop-enemy-dmg"></label>
                 <label>Speed: <input type="number" id="prop-enemy-speed" step="0.5"></label>
+                
+                <label>AI Type: 
+                    <select id="prop-enemy-ai" style="width: 100%; margin-top: 5px; background: #333; color: white; border: 1px solid #555;">
+                        <option value="basic_chaser">Basic Chaser</option>
+                        <option value="basic_patrol">Basic Patrol</option>
+                        <option value="custom">Custom Script</option>
+                    </select>
+                </label>
+                <div id="prop-enemy-script-group" style="display: none; margin-top: 10px;">
+                    <label>Custom Logic (JS):</label>
+                    <textarea id="prop-enemy-script" style="width: 100%; height: 100px; font-family: monospace; font-size: 11px; background: #222; color: #0f0; border: 1px solid #444;" placeholder="enemy.x += dt * 2;"></textarea>
+                    <div style="font-size: 10px; color: #888; margin-top: 4px;">Vars: enemy, player, projectiles, dt, now, timeDilationFactor, Math</div>
+                </div>
+
+                <div style="margin-top: 10px; font-weight: bold;">Custom Model</div>
                 <label>Custom Model (.glb):<input type="file" id="prop-model-file" accept=".glb"></label>
                 <button id="btn-clear-model" style="font-size: 10px;">Clear Model</button>
             </div>

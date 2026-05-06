@@ -103,6 +103,10 @@ function selectObject(obj) {
         document.getElementById('prop-enemy-hp').value = obj.hp;
         document.getElementById('prop-enemy-dmg').value = obj.damage;
         document.getElementById('prop-enemy-speed').value = obj.speed;
+        
+        document.getElementById('prop-enemy-ai').value = obj.aiType || 'basic_chaser';
+        document.getElementById('prop-enemy-script').value = obj.customAIScript || '';
+        document.getElementById('prop-enemy-script-group').style.display = (obj.aiType === 'custom') ? 'block' : 'none';
     } else if (obj.type === 'player') {
         document.getElementById('prop-player').style.display = 'block';
         document.getElementById('prop-player-hp').value = obj.hp;
@@ -158,6 +162,12 @@ document.getElementById('prop-breakable').addEventListener('input', (e) => {
 bindInput('prop-enemy-hp', 'hp', true);
 bindInput('prop-enemy-dmg', 'damage', true);
 bindInput('prop-enemy-speed', 'speed', true);
+bindInput('prop-enemy-ai', 'aiType');
+bindInput('prop-enemy-script', 'customAIScript');
+
+document.getElementById('prop-enemy-ai').addEventListener('change', (e) => {
+    document.getElementById('prop-enemy-script-group').style.display = (e.target.value === 'custom') ? 'block' : 'none';
+});
 
 bindInput('prop-player-hp', 'hp', true);
 bindInput('prop-player-speed', 'speed', true);
@@ -294,6 +304,8 @@ canvas.addEventListener('mousedown', (e) => {
             hp: currentTool==='tank'?2000:150,
             damage: 10,
             speed: currentTool==='tank'?0:4,
+            aiType: 'basic_chaser',
+            customAIScript: '',
             modelBase64: null
         };
         objects.push(obj);
