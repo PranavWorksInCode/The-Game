@@ -72,7 +72,7 @@ if (savedMapStr) {
             if (savedData.playerStart.speed) player.moveSpeed = savedData.playerStart.speed;
             if (savedData.playerStart.jumpVelocity) player.jumpVelocity = savedData.playerStart.jumpVelocity;
             
-            if (savedData.playerStart.weapons && savedData.playerStart.weapons.length > 0) {
+            if (savedData.playerStart.weapons) {
                 weapons = allWeapons.filter(w => w.name === 'Fists' || savedData.playerStart.weapons.includes(w.name));
             }
             
@@ -209,8 +209,11 @@ window.addEventListener('keydown', (e) => {
     }
     
     if (e.key >= '1' && e.key <= '6') {
-        currentWeaponIndex = parseInt(e.key) - 1;
-        updateHUD(performance.now() / 1000);
+        let newIdx = parseInt(e.key) - 1;
+        if (newIdx < weapons.length) {
+            currentWeaponIndex = newIdx;
+            updateHUD(performance.now() / 1000);
+        }
     }
     if (e.key === 'r' || e.key === 'R') {
         let w = weapons[currentWeaponIndex];
