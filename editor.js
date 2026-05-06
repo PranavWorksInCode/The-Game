@@ -75,6 +75,7 @@ function selectObject(obj) {
     
     // Transform
     document.getElementById('prop-transform').style.display = obj.type === 'player' ? 'none' : 'block';
+    document.getElementById('btn-delete-obj').style.display = obj.type === 'player' ? 'none' : 'block';
     if (obj.type !== 'player') {
         document.getElementById('prop-x').value = obj.x;
         document.getElementById('prop-z').value = obj.z;
@@ -246,7 +247,7 @@ canvas.addEventListener('mousedown', (e) => {
         }
         
         if (isPlayer) {
-            selectObject(null);
+            selectObject(playerStart);
             dragStart = { type: 'player' };
         } else {
             selectObject(clicked);
@@ -267,7 +268,9 @@ canvas.addEventListener('mousedown', (e) => {
         objects.push(obj);
         selectObject(obj);
     } else if (currentTool === 'player') {
-        playerStart = { x: wPos.x, z: wPos.z };
+        playerStart.x = wPos.x;
+        playerStart.z = wPos.z;
+        selectObject(playerStart);
         drawCanvas();
     } else if (currentTool === 'mover' || currentTool === 'tank') {
         let obj = {
